@@ -22,3 +22,6 @@ piper-tts==1.4.2
 # --- Trí nhớ mạng nơ-ron lưu trong PostgreSQL (pgvector). Tùy chọn: ---
 # nếu không kết nối được Postgres, Bia tự quay về lưu JSON.
 psycopg2-binary==2.9.12
+
+# --- Giao diện web xem mạng nơ-ron (python run.py brain) ---
+flask==3.1.1

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🧠 Bia — Brain Viewer</title>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<link  href="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.css" rel="stylesheet" />
+<style>
+  /* ───────── reset + font ───────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ───────── header ───────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 20px;
+    background: #1a1d27;
+    border-bottom: 1px solid #2a2d3e;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 600; color: #90caf9; }
+  header .badge {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .badge-fact    { background:#0d47a1; color:#90caf9; }
+  .badge-episode { background:#1b5e20; color:#a5d6a7; }
+  .badge-concept { background:#e65100; color:#ffcc80; }
+
+  .btn {
+    margin-left: auto;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .8; }
+  .btn-refresh { background: #1565c0; color: #fff; }
+  .btn-tab     { background: transparent; color: #90caf9;
+                 border: 1px solid #2a4a7a; margin-left: 4px; }
+  .btn-tab.active { background: #1565c0; border-color: #1565c0; color:#fff; }
+
+  /* ───────── main layout ───────── */
+  main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ───────── sidebar ───────── */
+  #sidebar {
+    width: 300px;
+    min-width: 220px;
+    background: #1a1d27;
+    border-right: 1px solid #2a2d3e;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  #sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid #2a2d3e;
+  }
+  .stab {
+    flex: 1;
+    padding: 8px 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: #888;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+  }
+  .stab.active { color: #90caf9; border-bottom-color: #90caf9; }
+  #sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+
+  /* stats */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: #12151f;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.5rem; font-weight: 700; color: #90caf9; }
+  .stat-card .lbl { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+  .section-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #555;
+    margin: 12px 0 6px;
+  }
+  .row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    margin-bottom: 3px;
+    background: #12151f;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .row-item:hover { background: #1e2235; }
+  .row-item .cnt {
+    font-size: 0.72rem;
+    color: #90caf9;
+    background: #0d2a5a;
+    padding: 1px 7px;
+    border-radius: 999px;
+  }
+
+  /* conversation */
+  .msg {
+    padding: 7px 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .msg-user      { background: #1a2744; border-left: 3px solid #1565c0; }
+  .msg-assistant { background: #1a2b1a; border-left: 3px solid #2e7d32; }
+  .msg-meta { font-size: 0.68rem; color: #555; margin-bottom: 3px; }
+
+  /* node detail */
+  #detail {
+    padding: 10px;
+    background: #12151f;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    display: none;
+  }
+  #detail .d-kind {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  #detail .d-content { color: #e0e0e0; margin-bottom: 6px; }
+  #detail .d-meta    { color: #777; font-size: 0.75rem; }
+
+  /* ───────── graph area ───────── */
+  #graph-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #graph {
+    width: 100%;
+    height: 100%;
+  }
+  #graph-overlay {
+    position: absolute;
+    top: 10px; right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #aaa;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #empty-msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #555;
+    font-size: 0.95rem;
+    pointer-events: none;
+  }
+  #empty-msg .icon { font-size: 3rem; }
+
+  /* loading */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: #0f1117cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: #90caf9;
+    z-index: 10;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid #1565c0;
+    border-top-color: #90caf9;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin-right: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <span style="font-size:1.4rem">🧠</span>
+  <h1>Bia — Brain Viewer</h1>
+  <span class="badge badge-fact">● Hồ sơ</span>
+  <span class="badge badge-episode">● Ký ức</span>
+  <span class="badge badge-concept">● Khái niệm</span>
+  <button class="btn btn-tab active" id="tab-graph"   onclick="switchTab('graph')">Đồ thị</button>
+  <button class="btn btn-tab"        id="tab-table"   onclick="switchTab('table')">Bảng</button>
+  <button class="btn btn-tab"        id="tab-chat"    onclick="switchTab('chat')">Hội thoại</button>
+  <button class="btn btn-refresh"    onclick="reload()">⟳ Làm mới</button>
+</header>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-tabs">
+      <div class="stab active" onclick="sstab('stats')">Thống kê</div>
+      <div class="stab"        onclick="sstab('detail')">Chi tiết</div>
+    </div>
+    <div id="sidebar-content">
+
+      <!-- Stats panel -->
+      <div id="panel-stats">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="num" id="s-total">—</div><div class="lbl">Tổng nơ-ron</div></div>
+          <div class="stat-card"><div class="num" id="s-syn">—</div><div class="lbl">Liên kết</div></div>
+          <div class="stat-card"><div class="num" id="s-fact">—</div><div class="lbl">Hồ sơ</div></div>
+          <div class="stat-card"><div class="num" id="s-ep">—</div><div class="lbl">Ký ức</div></div>
+          <div class="stat-card"><div class="num" id="s-con">—</div><div class="lbl">Khái niệm</div></div>
+          <div class="stat-card"><div class="num" id="s-chat">—</div><div class="lbl">Hội thoại</div></div>
+        </div>
+
+        <div class="section-title">🔥 Nơ-ron hoạt động nhiều nhất</div>
+        <div id="top-neurons"></div>
+
+        <div class="section-title">🔁 Thói quen nổi bật</div>
+        <div id="habits"></div>
+      </div>
+
+      <!-- Detail panel (khi click node) -->
+      <div id="panel-detail" style="display:none">
+        <div id="detail">
+          <div style="color:#555;font-size:0.82rem">← Click vào một nơ-ron trong đồ thị để xem chi tiết</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Graph / Table / Chat area -->
+  <div id="graph-wrap">
+
+    <!-- Loading -->
+    <div id="loading"><div class="spinner"></div> Đang tải dữ liệu…</div>
+
+    <!-- Graph view (default) -->
+    <div id="view-graph" style="width:100%;height:100%">
+      <div id="graph"></div>
+      <div id="graph-overlay">
+        <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7;border:2px solid #0288d1"></div> Hồ sơ (fact)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a5d6a7;border:2px solid #388e3c"></div> Ký ức (episode)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffcc80;border:2px solid #f57c00"></div> Khái niệm (concept)</div>
+      </div>
+      <div id="empty-msg" style="display:none">
+        <div class="icon">🫧</div>
+        <div>Mạng nơ-ron đang trống</div>
+        <div style="font-size:0.8rem;color:#444">Hãy nói chuyện với Bia để tạo ký ức đầu tiên</div>
+      </div>
+    </div>
+
+    <!-- Table view -->
+    <div id="view-table" style="display:none;overflow:auto;height:100%;padding:16px">
+      <table id="tbl" style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead>
+          <tr style="background:#1a1d27;color:#90caf9">
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #2a2d3e">ID</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #2a2d3e">Loại</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #2a2d3e">Nội dung</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #2a2d3e">Danh mục</th>
+            <th style="padding:8px 10px;text-align:right;border-bottom:1px solid #2a2d3e">Hits</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #2a2d3e">Thời gian</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Chat view -->
+    <div id="view-chat" style="display:none;overflow-y:auto;height:100%;padding:16px">
+      <div id="chat-list"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let network = null;
+let graphData = { nodes: [], edges: [] };
+let currentTab = "graph";
+let currentSTab = "stats";
+
+// ─────────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ["graph","table","chat"].forEach(t => {
+    document.getElementById("view-" + t).style.display = t === tab ? "block" : "none";
+    document.getElementById("tab-" + t).classList.toggle("active", t === tab);
+  });
+  if (tab === "graph") {
+    document.getElementById("view-graph").style.display = "block";
+    document.getElementById("view-graph").style.height = "100%";
+  }
+  if (tab === "chat") loadChat();
+}
+
+function sstab(tab) {
+  currentSTab = tab;
+  document.getElementById("panel-stats").style.display  = tab === "stats"  ? "block" : "none";
+  document.getElementById("panel-detail").style.display = tab === "detail" ? "block" : "none";
+  document.querySelectorAll(".stab").forEach((el, i) =>
+    el.classList.toggle("active", ["stats","detail"][i] === tab)
+  );
+}
+
+// ─────────────────────────────────────────────
+// Load graph
+// ─────────────────────────────────────────────
+async function loadGraph() {
+  document.getElementById("loading").style.display = "flex";
+  document.getElementById("empty-msg").style.display = "none";
+
+  try {
+    const res = await fetch("/api/graph");
+    const data = await res.json();
+    graphData = data;
+
+    if (data.error) throw new Error(data.error);
+
+    if (data.nodes.length === 0) {
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("empty-msg").style.display = "flex";
+      return;
+    }
+
+    renderGraph(data);
+    renderTable(data.nodes);
+  } catch(e) {
+    document.getElementById("loading").innerHTML =
+      `<span style="color:#ef9a9a">⚠ Lỗi: ${e.message}</span>`;
+  }
+}
+
+function renderGraph(data) {
+  const container = document.getElementById("graph");
+
+  const nodes = new vis.DataSet(data.nodes.map(n => ({
+    id: n.id,
+    label: n.label,
+    title: n.title,
+    color: n.color,
+    value: n.value,
+    font: { color: "#e0e0e0", size: 11 },
+    borderWidth: 2,
+    shape: n.kind === "concept" ? "diamond" : n.kind === "fact" ? "ellipse" : "box",
+  })));
+
+  const edges = new vis.DataSet(data.edges.map((e, i) => ({
+    id: i,
+    from: e.from,
+    to: e.to,
+    title: e.title,
+    width: Math.max(0.5, e.value * 4),
+    color: { color: "#2a3a5a", highlight: "#5c8de8", opacity: 0.7 },
+    smooth: { type: "dynamic" },
+  })));
+
+  const options = {
+    nodes: {
+      scaling: { min: 12, max: 40, label: { enabled: true, min: 9, max: 14 } },
+    },
+    edges: {
+      scaling: { min: 0.5, max: 6 },
+      arrows: { to: { enabled: false } },
+    },
+    physics: {
+      stabilization: { iterations: 120 },
+      barnesHut: { gravitationalConstant: -4000, springLength: 120, damping: 0.35 },
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 150,
+      navigationButtons: true,
+      keyboard: true,
+    },
+    layout: { improvedLayout: true },
+  };
+
+  if (network) network.destroy();
+  network = new vis.Network(container, { nodes, edges }, options);
+
+  network.on("stabilizationIterationsDone", () => {
+    document.getElementById("loading").style.display = "none";
+    network.setOptions({ physics: { enabled: false } });
+  });
+
+  network.on("click", params => {
+    if (params.nodes.length > 0) {
+      const nid = params.nodes[0];
+      const node = data.nodes.find(n => n.id === nid);
+      if (node) showDetail(node, data);
+    }
+  });
+}
+
+function showDetail(node, data) {
+  sstab("detail");
+  const kindColor = { fact:"#0d47a1", episode:"#1b5e20", concept:"#e65100" };
+  const kindLabel = { fact:"Hồ sơ", episode:"Ký ức", concept:"Khái niệm" };
+
+  // Đếm liên kết
+  const links = data.edges.filter(e => e.from === node.id || e.to === node.id);
+
+  document.getElementById("detail").style.display = "block";
+  document.getElementById("detail").innerHTML = `
+    <span class="d-kind" style="background:${kindColor[node.kind]||'#333'};color:#fff">
+      ${kindLabel[node.kind] || node.kind}
+    </span>
+    <div class="d-content">${data.nodes.find(n=>n.id===node.id)?.title?.replace(/\n/g,'<br>') || ''}</div>
+    <div class="d-meta">Số liên kết: <b style="color:#90caf9">${links.length}</b></div>
+    <div class="d-meta" style="margin-top:6px">Các liên kết mạnh nhất:</div>
+    ${links.sort((a,b)=>b.value-a.value).slice(0,5).map(e => {
+      const otherId = e.from === node.id ? e.to : e.from;
+      const other = data.nodes.find(n => n.id === otherId);
+      return `<div class="row-item" style="margin-top:4px;font-size:0.75rem">
+        <span>${other?.label || otherId}</span>
+        <span class="cnt">w=${e.value}</span>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ─────────────────────────────────────────────
+// Load stats
+// ─────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res = await fetch("/api/stats");
+    const d = await res.json();
+    if (d.error) return;
+
+    const bk = d.by_kind || {};
+    const total = (bk.fact||0) + (bk.episode||0) + (bk.concept||0);
+    document.getElementById("s-total").textContent = total;
+    document.getElementById("s-syn").textContent   = d.synapses || 0;
+    document.getElementById("s-fact").textContent  = bk.fact    || 0;
+    document.getElementById("s-ep").textContent    = bk.episode || 0;
+    document.getElementById("s-con").textContent   = bk.concept || 0;
+    document.getElementById("s-chat").textContent  = d.conversations || 0;
+
+    // Top neurons
+    const tn = document.getElementById("top-neurons");
+    tn.innerHTML = (d.top_neurons || []).map(n =>
+      `<div class="row-item">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.content}</span>
+        <span class="cnt">${n.hits}</span>
+      </div>`
+    ).join("") || '<div style="color:#555;font-size:0.8rem">Chưa có dữ liệu</div>';
+
+    // Habits
+    const hb = document.getElementById("habits");
+    hb.innerHTML = (d.habits || []).map(h =>
+      `<div class="row-item">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.key}</span>
+        <span class="cnt">${h.count}</span>
+      </div>`
+    ).join("") || '<div style="color:#555;font-size:0.8rem">Chưa có thói quen</div>';
+
+  } catch(e) { console.error(e); }
+}
+
+// ─────────────────────────────────────────────
+// Render table
+// ─────────────────────────────────────────────
+function renderTable(nodes) {
+  const kindColor = { fact:"#4fc3f7", episode:"#a5d6a7", concept:"#ffcc80" };
+  const tbody = document.getElementById("tbl-body");
+  tbody.innerHTML = nodes.map(n => `
+    <tr style="border-bottom:1px solid #1e2235" onmouseover="this.style.background='#1a1d27'" onmouseout="this.style.background=''">
+      <td style="padding:6px 10px;color:#555">${n.id}</td>
+      <td style="padding:6px 10px">
+        <span style="color:${kindColor[n.kind]||'#aaa'};font-size:0.75rem;font-weight:600">${n.kind}</span>
+      </td>
+      <td style="padding:6px 10px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          title="${n.title}">${n.label}</td>
+      <td style="padding:6px 10px;color:#888">${n.category || '—'}</td>
+      <td style="padding:6px 10px;text-align:right;color:#90caf9">${n.hits}</td>
+      <td style="padding:6px 10px;color:#555;font-size:0.75rem">${n.time || ''}</td>
+    </tr>
+  `).join("");
+}
+
+// ─────────────────────────────────────────────
+// Load chat
+// ─────────────────────────────────────────────
+async function loadChat() {
+  const list = document.getElementById("chat-list");
+  list.innerHTML = '<div style="color:#555">Đang tải…</div>';
+  try {
+    const res = await fetch("/api/conversations");
+    const rows = await res.json();
+    if (!rows.length) {
+      list.innerHTML = '<div style="color:#555">Chưa có hội thoại nào.</div>';
+      return;
+    }
+    // Nhóm theo session
+    const sessions = {};
+    rows.forEach(r => {
+      sessions[r.session_id] = sessions[r.session_id] || [];
+      sessions[r.session_id].push(r);
+    });
+    list.innerHTML = Object.entries(sessions).map(([sid, msgs]) => `
+      <div style="margin-bottom:16px">
+        <div style="font-size:0.72rem;color:#555;margin-bottom:6px;text-transform:uppercase">
+          📂 Session: ${sid}
+        </div>
+        ${[...msgs].reverse().map(m => `
+          <div class="msg msg-${m.role}">
+            <div class="msg-meta">${m.role === 'user' ? '👤 Bạn' : '🤖 Bia'} · ${m.ts}</div>
+            <div>${m.content.replace(/</g,"&lt;").replace(/\n/g,"<br>")}</div>
+          </div>
+        `).join("")}
+      </div>
+    `).join("");
+  } catch(e) {
+    list.innerHTML = `<div style="color:#ef9a9a">Lỗi: ${e.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Reload all
+// ─────────────────────────────────────────────
+function reload() {
+  loadGraph();
+  loadStats();
+  if (currentTab === "chat") loadChat();
+}
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  // show graph view by default
+  document.getElementById("view-graph").style.display = "block";
+  document.getElementById("view-table").style.display = "none";
+  document.getElementById("view-chat").style.display  = "none";
+  sstab("stats");
+  loadGraph();
+  loadStats();
+  // auto-refresh mỗi 30s
+  setInterval(reload, 30000);
+});
+</script>
+</body>
+</html>

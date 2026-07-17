@@ -5,6 +5,7 @@ Cách dùng:
     python3 run.py            # chế độ chat bằng chữ trong terminal
     python3 run.py mascot     # nhân vật mascot nổi trên desktop
                               # (tự dùng 3D nếu đã cấu hình mascot_model, không thì 2D)
+    python3 run.py brain      # giao diện web xem mạng nơ-ron (http://localhost:5050)
 """
 import os
 import sys
@@ -26,6 +27,9 @@ def main():
         else:
             from assistant.mascot.app import run as run_mascot_2d
             run_mascot_2d()                # nhân vật 2D vẽ tay
+    elif arg in ("brain", "--brain", "-b"):
+        from assistant.brain_view import run as run_brain
+        run_brain()                        # web UI xem mạng nơ-ron
     else:
         from assistant.cli import run as run_cli
         run_cli()

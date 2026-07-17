@@ -411,17 +411,36 @@ class _Voice(QObject):
         context = memory.build_context(text, self.cfg)
         intent = parse_intent(text, self.cfg, context)
 
+        # 1) Chỉ trò chuyện -> nói câu trả lời
+        if intent.action in (CHAT, UNKNOWN):
+            answer = intent.reply or "..."
+            self.sig_state.emit("talk")
+            self.sig_bubble.emit(answer)
+            self._tts.speak(answer)
+            memory.add_interaction(text, intent.action, intent.target, self.cfg)
+            memory.learn_async(text, self.cfg)
+            return
+
+        # 2) Chỉ đọc thông tin (giờ/ngày, tin tức...) -> làm ngay rồi đọc kết quả
+        if not intent.needs_confirmation:
+            if intent.reply:
+                self.sig_state.emit("talk")
+                self.sig_bubble.emit(intent.reply)
+                self._tts.speak(intent.reply)
+            self.sig_state.emit("think")
+            self.sig_bubble.emit("⏳ Để mình xem nhé...")
+            result = execute(intent, self.cfg)
+            self.sig_state.emit("talk")
+            self.sig_bubble.emit(result)
+            self._tts.speak(result)
+            memory.add_interaction(text, intent.action, intent.target, self.cfg)
+            memory.learn_async(text, self.cfg)
+            return
+
+        # 3) Hành động thay đổi máy -> xác nhận trước
         self.sig_state.emit("talk")
         self.sig_bubble.emit(intent.reply or "...")
         self._tts.speak(intent.reply or "")
-
-        # chat / không cần xác nhận -> xong
-        if intent.action in (CHAT, UNKNOWN) or not intent.needs_confirmation:
-            memory.add_interaction(text, intent.action, intent.target, self.cfg)
-            memory.learn_async(text, self.cfg)          # tự học thông tin lâu dài
-            return
-
-        # cần xác nhận -> nghe 'có/không'
         time.sleep(0.25)
         self.sig_state.emit("listen")
         self.sig_bubble.emit("🎤 (nói 'có' hoặc 'không')")

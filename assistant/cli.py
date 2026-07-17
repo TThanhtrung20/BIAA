@@ -67,9 +67,12 @@ def run() -> None:
         context = memory.build_context(text, cfg)
         intent = parse_intent(text, cfg, context)
 
-        # Chỉ trò chuyện hoặc không cần thao tác -> trả lời luôn
+        # Trò chuyện / hỏi giờ ngày / tra tin tức... -> làm ngay, không cần xác nhận
         if intent.action in {CHAT, UNKNOWN} or not intent.needs_confirmation:
-            print(f"🤖 {intent.reply or execute(intent, cfg)}\n")
+            if intent.action not in {CHAT, UNKNOWN}:
+                print("⏳ Để mình xem nhé...")
+            answer = execute(intent, cfg)   # CHAT/UNKNOWN -> reply; datetime/web -> kết quả thật
+            print(f"🤖 {answer}\n")
             memory.add_interaction(text, intent.action, intent.target, cfg)
             memory.learn_async(text, cfg)          # tự học thông tin lâu dài
             continue

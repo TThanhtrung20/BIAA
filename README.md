@@ -6,7 +6,8 @@ Bia hiểu ý bạn qua **Ollama (LLM local)**, **hỏi xác nhận trước khi
 điều khiển máy, soạn file Office, và **tự học hỏi** về bạn bằng một **trí nhớ dạng
 mạng nơ-ron** lưu trong PostgreSQL/pgvector.
 
-> Tất cả chạy offline trên máy bạn — không gửi dữ liệu ra ngoài.
+> Bộ não, giọng nói và trí nhớ chạy **offline** trên máy bạn. Riêng khi bạn hỏi
+> tin tức / thông tin thời gian thực, Bia mới truy vấn internet (chỉ gửi từ khoá tìm kiếm).
 
 ---
 
@@ -16,6 +17,8 @@ mạng nơ-ron** lưu trong PostgreSQL/pgvector.
 - ✅ **Xác nhận trước khi làm**: Bia luôn hỏi lại ("Bạn muốn mình mở YouTube đúng không?") rồi mới thực thi.
 - 🕹️ **Điều khiển máy**: mở web, mở ứng dụng, tìm kiếm.
 - 📄 **Soạn Office**: tạo file Word, Excel, PowerPoint có nội dung do LLM sinh.
+- ⏰ **Ngày giờ tức thì**: hỏi "mấy giờ / hôm nay thứ mấy" — trả lời từ đồng hồ máy (offline).
+- 🌐 **Tin tức & thông tin mới**: hỏi bản tin mới nhất, luật mới, thời tiết... Bia tra Google News rồi tóm tắt (cần internet).
 - 🎙️ **Giọng nói offline**: nghe bằng `faster-whisper` (STT), nói bằng `piper` (TTS) — tiếng Việt.
 - 📢 **Gọi tên rảnh tay (wake word)**: nói *"a lô Bia ..."* là Bia thức dậy và làm, không cần bấm.
 - 🧍 **Mascot 3D**: nhân vật nổi trên desktop, tự đi/chạy/nhảy, vẫy tay chào, đổi trạng thái khi nghe/nói.

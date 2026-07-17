@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 from . import llm
-from .actions import office, system
+from .actions import office, system, web
 from .intents import (
     CHAT,
     CREATE_EXCEL,
     CREATE_PPTX,
     CREATE_WORD,
+    GET_DATETIME,
     OPEN_APP,
     OPEN_URL,
     SEARCH_WEB,
+    UNKNOWN,
+    WEB_ANSWER,
     Intent,
 )
 
@@ -24,9 +27,13 @@ def execute(intent: Intent, cfg=None) -> str:
             return system.search_web(intent.target)
         if intent.action == OPEN_APP:
             return system.open_app(intent.target)
+        if intent.action == GET_DATETIME:
+            return web.get_datetime(intent.target)
+        if intent.action == WEB_ANSWER:
+            return web.web_answer(intent.target, cfg)
         if intent.action in (CREATE_WORD, CREATE_EXCEL, CREATE_PPTX):
             return _create_office(intent, cfg)
-        if intent.action == CHAT:
+        if intent.action in (CHAT, UNKNOWN):
             return intent.reply or "..."
         return "Mình chưa hỗ trợ hành động này."
     except Exception as exc:  # noqa: BLE001 - gom lỗi để báo lại thân thiện

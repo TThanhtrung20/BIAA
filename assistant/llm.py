@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 
 from .config import Config
-from .intents import CHAT, UNKNOWN, VALID_ACTIONS, Intent
+from .intents import CHAT, NO_CONFIRM_ACTIONS, UNKNOWN, VALID_ACTIONS, Intent
 
 SYSTEM_PROMPT = """Bạn là Bia, một trợ lý ảo thân thiện chạy trên máy tính Linux.
 Tên của bạn là Bia. Khi người dùng chào hoặc hỏi tên, hãy tự xưng là Bia.
@@ -19,7 +19,7 @@ dưới dạng JSON. CHỈ trả về JSON hợp lệ, không thêm bất kỳ c
 
 Schema bắt buộc:
 {
-  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | chat",
+  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | chat",
   "target": "đích của hành động",
   "reply": "một câu ngắn bằng tiếng Việt để xác nhận lại với người dùng",
   "needs_confirmation": true hoặc false
@@ -28,7 +28,9 @@ Schema bắt buộc:
 Quy tắc:
 - "open_url": mở một trang web. target là URL đầy đủ (vd: https://www.youtube.com).
 - "open_app": mở một ứng dụng trên máy. target là tên app (vd: firefox, calculator, files, terminal).
-- "search_web": tìm kiếm trên web. target là từ khoá.
+- "search_web": MỞ trình duyệt để người dùng TỰ xem kết quả tìm kiếm. target là từ khoá. Chỉ dùng khi người dùng nói rõ "mở/tìm trên web/google".
+- "get_datetime": trả lời NGÀY/GIỜ/THỨ hiện tại. Dùng khi hỏi mấy giờ, hôm nay ngày mấy, thứ mấy. target để trống. needs_confirmation=false.
+- "web_answer": Bia TỰ tra thông tin MỚI trên internet rồi trả lời (bản tin/tin tức mới nhất, luật mới, thời tiết, giá vàng/xăng, tỉ số, sự kiện đang diễn ra...). target là chủ đề cần tra (vd "luật giao thông mới", "thời tiết Hà Nội", để trống nếu hỏi bản tin chung). needs_confirmation=false.
 - "create_word": soạn file Word. target là chủ đề/mô tả nội dung tài liệu.
 - "create_excel": tạo file Excel. target là mô tả bảng dữ liệu cần tạo.
 - "create_powerpoint": làm bài thuyết trình. target là chủ đề bài trình chiếu.
@@ -43,8 +45,23 @@ Người dùng: "mở youtube"
 Người dùng: "mở máy tính tính toán"
 {"action":"open_app","target":"calculator","reply":"Bạn muốn mình mở ứng dụng Máy tính đúng không?","needs_confirmation":true}
 
-Người dùng: "tìm cách nấu phở bò"
-{"action":"search_web","target":"cách nấu phở bò","reply":"Bạn muốn mình tìm 'cách nấu phở bò' trên web đúng không?","needs_confirmation":true}
+Người dùng: "mở google tìm cách nấu phở bò"
+{"action":"search_web","target":"cách nấu phở bò","reply":"Bạn muốn mình mở trình duyệt tìm 'cách nấu phở bò' đúng không?","needs_confirmation":true}
+
+Người dùng: "bây giờ mấy giờ rồi"
+{"action":"get_datetime","target":"","reply":"","needs_confirmation":false}
+
+Người dùng: "hôm nay ngày bao nhiêu, thứ mấy"
+{"action":"get_datetime","target":"","reply":"","needs_confirmation":false}
+
+Người dùng: "cho mình bản tin mới nhất hôm nay"
+{"action":"web_answer","target":"","reply":"","needs_confirmation":false}
+
+Người dùng: "có luật giao thông gì mới không"
+{"action":"web_answer","target":"luật giao thông mới","reply":"","needs_confirmation":false}
+
+Người dùng: "thời tiết Hà Nội hôm nay thế nào"
+{"action":"web_answer","target":"thời tiết Hà Nội hôm nay","reply":"","needs_confirmation":false}
 
 Người dùng: "soạn giúp tôi file word về lợi ích của việc đọc sách"
 {"action":"create_word","target":"lợi ích của việc đọc sách","reply":"Bạn muốn mình soạn một file Word về 'lợi ích của việc đọc sách' đúng không?","needs_confirmation":true}
@@ -97,7 +114,7 @@ def parse_intent(text: str, cfg: Config, context: str = "") -> Intent:
         needs_confirmation=bool(data.get("needs_confirmation", True)),
         raw=data,
     )
-    if action == CHAT:
+    if action in NO_CONFIRM_ACTIONS:
         intent.needs_confirmation = False
     return intent
 
@@ -124,6 +141,43 @@ def _chat_json(cfg: Config, system: str, user: str) -> dict:
     with urllib.request.urlopen(req, timeout=cfg.request_timeout) as resp:
         body = json.loads(resp.read().decode("utf-8"))
     return json.loads(body["message"]["content"])
+
+
+def _chat_text(cfg: Config, system: str, user: str, temperature: float = 0.3) -> str:
+    """Gọi Ollama /api/chat trả về văn bản thường (không ép JSON)."""
+    url = f"{cfg.ollama_host}/api/chat"
+    payload = {
+        "model": cfg.model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "stream": False,
+        "options": {"temperature": temperature},
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=cfg.request_timeout) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+    return body["message"]["content"]
+
+
+def summarize_web(topic: str, titles: list[str], cfg: Config) -> str:
+    """Tóm tắt các tiêu đề tin (lấy từ internet) thành câu trả lời ngắn, có kiểm soát."""
+    headlines = "\n".join(f"- {t}" for t in titles)
+    system = (
+        "Bạn là Bia, trợ lý ảo tiếng Việt. Dưới đây là các tiêu đề tin tức MỚI vừa "
+        "lấy từ internet. Câu trả lời của bạn sẽ được ĐỌC TO cho người dùng nghe, nên "
+        "phải NGẮN GỌN: tối đa 3 câu, nói tự nhiên như đang kể, KHÔNG đánh số, KHÔNG "
+        "liệt kê dài. Nêu 2-3 tin nổi bật nhất. CHỈ dựa trên các tiêu đề được cung cấp, "
+        "TUYỆT ĐỐI không bịa thêm chi tiết."
+    )
+    user = f"Chủ đề người dùng hỏi: {topic or 'tin mới nhất'}\n\nCác tiêu đề:\n{headlines}"
+    return _chat_text(cfg, system, user)
 
 
 # --------------------------------------------------------------------------- #

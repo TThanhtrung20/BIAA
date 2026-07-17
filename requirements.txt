@@ -1,16 +1,24 @@
-# MVP KHÔNG cần cài gì thêm: chỉ dùng Python stdlib + Ollama đang chạy sẵn.
+# Phụ thuộc của Bia. Cài trong môi trường ảo:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 #
-# Các thư viện dưới đây sẽ dùng ở những bước mở rộng tiếp theo:
-#
-# --- Giọng nói (STT / TTS) ---
-# faster-whisper        # nhận dạng giọng nói (hỗ trợ tiếng Việt tốt)
-# sounddevice           # thu âm từ micro
-# piper-tts             # đọc phản hồi (offline)  — hoặc gTTS (cần mạng)
-#
-# --- Trí nhớ (học thói quen người dùng) ---
-# numpy                 # tính độ tương đồng vector (embedding qua Ollama)
-#
-# --- Soạn thảo Office ---
-# python-docx           # Word (.docx)
-# openpyxl              # Excel (.xlsx)
-# python-pptx           # PowerPoint (.pptx)
+# LƯU Ý: Ollama KHÔNG phải gói pip. Cài riêng từ https://ollama.com rồi tải model:
+#   ollama pull qwen2.5-coder:7b
+#   ollama pull nomic-embed-text
+
+# --- Soạn thảo Office (Word / Excel / PowerPoint) ---
+python-docx==1.2.0
+openpyxl==3.1.5
+python-pptx==1.0.2
+
+# --- Mascot 3D trên desktop (Qt/QML) ---
+PySide6==6.11.1
+
+# --- Giọng nói offline: STT (nghe) + TTS (nói) ---
+faster-whisper==1.2.1
+sounddevice==0.5.5
+numpy==2.5.1
+piper-tts==1.4.2
+
+# --- Trí nhớ mạng nơ-ron lưu trong PostgreSQL (pgvector). Tùy chọn: ---
+# nếu không kết nối được Postgres, Bia tự quay về lưu JSON.
+psycopg2-binary==2.9.12

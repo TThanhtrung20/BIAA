@@ -1,0 +1,27 @@
+# --- Môi trường ảo Python (1.2GB, tạo lại bằng: python -m venv .venv) ---
+.venv/
+venv/
+env/
+
+# --- Cache / bytecode Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Artefact máy-cụ-thể (thư viện .so trích từ .deb để vá Qt) ---
+.native/
+
+# --- Dữ liệu runtime / trí nhớ cục bộ (đã chuyển sang Postgres) ---
+*.log
+memory.json
+
+# --- Hệ điều hành / IDE ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/

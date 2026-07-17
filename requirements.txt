@@ -1,0 +1,16 @@
+# MVP KHÔNG cần cài gì thêm: chỉ dùng Python stdlib + Ollama đang chạy sẵn.
+#
+# Các thư viện dưới đây sẽ dùng ở những bước mở rộng tiếp theo:
+#
+# --- Giọng nói (STT / TTS) ---
+# faster-whisper        # nhận dạng giọng nói (hỗ trợ tiếng Việt tốt)
+# sounddevice           # thu âm từ micro
+# piper-tts             # đọc phản hồi (offline)  — hoặc gTTS (cần mạng)
+#
+# --- Trí nhớ (học thói quen người dùng) ---
+# numpy                 # tính độ tương đồng vector (embedding qua Ollama)
+#
+# --- Soạn thảo Office ---
+# python-docx           # Word (.docx)
+# openpyxl              # Excel (.xlsx)
+# python-pptx           # PowerPoint (.pptx)

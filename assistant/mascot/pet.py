@@ -166,55 +166,147 @@ class MascotWindow(QWidget):
     def _draw_character(self, p, r):
         s = self.size_px
         color = _STATE_COLOR.get(self.state, _STATE_COLOR[IDLE])
+        dark = _DARK
+        cx = r.left() + s // 2
+        cy = r.top() + s // 2
 
-        # thân
+        # ── Đuôi (phía sau thân, vẽ trước) ──
+        tail_color = QColor(color).darker(115)
+        p.setPen(QPen(tail_color, max(3, s // 18)))
+        p.setBrush(Qt.NoBrush)
+        tail = QPainterPath()
+        tail_x = cx + int(s * 0.36 * self.facing)
+        tail.moveTo(tail_x, cy + int(s * 0.28))
+        tail.cubicTo(
+            tail_x + int(s * 0.38 * self.facing), cy + int(s * 0.22),
+            tail_x + int(s * 0.44 * self.facing), cy - int(s * 0.10),
+            tail_x + int(s * 0.28 * self.facing), cy - int(s * 0.30),
+        )
+        p.drawPath(tail)
+
+        # ── Thân tròn ──
+        p.setPen(QPen(dark, max(2, s // 42)))
         p.setBrush(color)
-        p.setPen(QPen(_DARK, max(2, s // 40)))
-        body = r.adjusted(int(s * 0.08), int(s * 0.12), -int(s * 0.08), -int(s * 0.05))
-        p.drawRoundedRect(body, s * 0.35, s * 0.35)
+        body_r = int(s * 0.36)
+        p.drawEllipse(cx - body_r, cy + int(s * 0.05), body_r * 2, int(s * 0.58))
 
-        # mắt
-        eye_y = r.top() + int(s * 0.42)
-        dx = int(s * 0.06) * self.facing
-        left_x = r.left() + int(s * 0.34) + dx
-        right_x = r.left() + int(s * 0.58) + dx
-        eye_w, eye_h = int(s * 0.12), int(s * 0.16)
-        if self._blink:
-            p.setPen(QPen(_DARK, max(2, s // 40)))
-            p.drawLine(left_x, eye_y + eye_h // 2, left_x + eye_w, eye_y + eye_h // 2)
-            p.drawLine(right_x, eye_y + eye_h // 2, right_x + eye_w, eye_y + eye_h // 2)
-        else:
+        # ── Đầu ──
+        head_r = int(s * 0.30)
+        head_cx, head_cy = cx, cy - int(s * 0.04)
+        p.setBrush(color)
+        p.drawEllipse(head_cx - head_r, head_cy - head_r, head_r * 2, head_r * 2)
+
+        # ── Tai nhọn ──
+        ear_dx = int(s * 0.18)
+        for side in (-1, 1):
+            ex = head_cx + side * ear_dx
+            ey = head_cy - head_r + int(s * 0.04)
+            ear = QPainterPath()
+            ear.moveTo(ex - int(s * 0.10), ey)
+            ear.lineTo(ex + int(s * 0.10), ey)
+            ear.lineTo(ex + side * int(s * 0.01), ey - int(s * 0.18))
+            ear.closeSubpath()
+            p.setBrush(color)
+            p.drawPath(ear)
+            # bên trong tai (hồng)
+            inner = QPainterPath()
+            inner.moveTo(ex - int(s * 0.055), ey + int(s * 0.01))
+            inner.lineTo(ex + int(s * 0.055), ey + int(s * 0.01))
+            inner.lineTo(ex + side * int(s * 0.005), ey - int(s * 0.10))
+            inner.closeSubpath()
+            p.setBrush(QColor("#ffb3c6"))
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor("white"))
-            p.drawEllipse(left_x, eye_y, eye_w, eye_h)
-            p.drawEllipse(right_x, eye_y, eye_w, eye_h)
-            p.setBrush(_DARK)
-            pr = max(2, int(eye_w * 0.5))
-            pdx = int(pr * 0.4) * self.facing
-            p.drawEllipse(left_x + eye_w // 2 - pr // 2 + pdx, eye_y + eye_h // 2 - pr // 2, pr, pr)
-            p.drawEllipse(right_x + eye_w // 2 - pr // 2 + pdx, eye_y + eye_h // 2 - pr // 2, pr, pr)
+            p.drawPath(inner)
+            p.setPen(QPen(dark, max(2, s // 42)))
 
-        self._draw_mouth(p, r)
+        # ── Mắt ──
+        eye_y = head_cy - int(s * 0.06)
+        eye_dx = int(s * 0.11)
+        look = int(s * 0.025) * self.facing
+        for ex in (head_cx - eye_dx, head_cx + eye_dx):
+            ew, eh = int(s * 0.11), int(s * 0.13)
+            if self._blink:
+                p.setPen(QPen(dark, max(2, s // 38)))
+                p.drawLine(ex - ew // 2, eye_y + eh // 2,
+                           ex + ew // 2, eye_y + eh // 2)
+            else:
+                # lòng trắng
+                p.setPen(Qt.NoPen)
+                p.setBrush(QColor("white"))
+                p.drawEllipse(ex - ew // 2, eye_y - eh // 2, ew, eh)
+                # con ngươi (dọc như mèo thật)
+                p.setBrush(QColor("#1a1a2e"))
+                pw = max(2, ew // 3)
+                p.drawEllipse(ex - pw // 2 + look,
+                              eye_y - int(eh * 0.42), pw, int(eh * 0.84))
+                # điểm sáng nhỏ
+                p.setBrush(QColor("white"))
+                dot = max(1, pw // 3)
+                p.drawEllipse(ex + look + dot, eye_y - dot * 2, dot * 2, dot * 2)
+        p.setPen(QPen(dark, max(2, s // 42)))
 
-    def _draw_mouth(self, p, r):
-        s = self.size_px
-        cx = r.center().x()
-        my = r.top() + int(s * 0.66)
+        # ── Mũi ──
+        nose_y = head_cy + int(s * 0.07)
+        p.setBrush(QColor("#ff8fab"))
+        p.setPen(Qt.NoPen)
+        nose_w, nose_h = int(s * 0.07), int(s * 0.05)
+        nose = QPainterPath()
+        nose.moveTo(head_cx, nose_y + nose_h)
+        nose.lineTo(head_cx - nose_w, nose_y)
+        nose.lineTo(head_cx + nose_w, nose_y)
+        nose.closeSubpath()
+        p.drawPath(nose)
+        p.setPen(QPen(dark, max(2, s // 42)))
+
+        # ── Miệng + râu ──
+        self._draw_mouth(p, r, head_cx, nose_y, s)
+
+        # ── Râu mèo ──
+        p.setPen(QPen(QColor("#aaaaaa"), max(1, s // 55)))
+        for i, wy in enumerate((-1, 0, 1)):
+            wy_off = int(s * 0.02) * wy
+            # râu trái
+            p.drawLine(head_cx - int(s * 0.10),
+                       nose_y + int(s * 0.04) + wy_off,
+                       head_cx - int(s * 0.36),
+                       nose_y - int(s * 0.02) + wy_off)
+            # râu phải
+            p.drawLine(head_cx + int(s * 0.10),
+                       nose_y + int(s * 0.04) + wy_off,
+                       head_cx + int(s * 0.36),
+                       nose_y - int(s * 0.02) + wy_off)
+
+        # ── Chân trước nhỏ ──
+        p.setPen(QPen(dark, max(2, s // 42)))
+        p.setBrush(color)
+        for side in (-1, 1):
+            fx = cx + side * int(s * 0.22)
+            fy = cy + int(s * 0.50)
+            p.drawRoundedRect(fx - int(s * 0.08), fy,
+                              int(s * 0.16), int(s * 0.18),
+                              int(s * 0.06), int(s * 0.06))
+
+    def _draw_mouth(self, p, r, cx, nose_y, s):
+        my = nose_y + int(s * 0.07)
         p.setPen(QPen(_DARK, max(2, s // 45)))
         if self.state == LISTENING:
             p.setBrush(QColor("#7a3b3b"))
             p.drawEllipse(cx - int(s * 0.06), my, int(s * 0.12), int(s * 0.10))
         elif self.state == TALKING:
             p.setBrush(QColor("#7a3b3b"))
-            h = int(s * 0.06) + (int(s * 0.06) if self._mouth_phase < 10 else 0)
+            h = int(s * 0.06) + (int(s * 0.05) if self._mouth_phase < 10 else 0)
             p.drawEllipse(cx - int(s * 0.07), my, int(s * 0.14), h)
         elif self.state == THINKING:
-            p.drawLine(cx - int(s * 0.06), my + int(s * 0.03), cx + int(s * 0.06), my + int(s * 0.03))
-        else:  # idle / walk -> mỉm cười
+            p.setBrush(Qt.NoBrush)
+            p.drawLine(cx - int(s * 0.05), my + int(s * 0.02),
+                       cx + int(s * 0.05), my + int(s * 0.02))
+        else:
+            # mỉm cười hình chữ W (nụ cười mèo)
             p.setBrush(Qt.NoBrush)
             path = QPainterPath()
             path.moveTo(cx - int(s * 0.08), my)
-            path.quadTo(cx, my + int(s * 0.09), cx + int(s * 0.08), my)
+            path.quadTo(cx - int(s * 0.04), my + int(s * 0.07), cx, my + int(s * 0.02))
+            path.quadTo(cx + int(s * 0.04), my + int(s * 0.07), cx + int(s * 0.08), my)
             p.drawPath(path)
 
     def _draw_bubble(self, p):

@@ -234,21 +234,31 @@ def generate_office_content(doc_type: str, topic: str, cfg: Config) -> dict:
 # --------------------------------------------------------------------------- #
 # Trích xuất "trí nhớ": rút thông tin lâu dài về người dùng để tự học hỏi
 # --------------------------------------------------------------------------- #
-_EXTRACT_PROMPT = """Bạn là bộ trích xuất trí nhớ cho trợ lý ảo tên Bia.
-Từ câu nói của người dùng, hãy rút ra những THÔNG TIN LÂU DÀI đáng nhớ về họ:
-tên, sở thích, thói quen, thông tin cá nhân, cách họ muốn được phục vụ.
-TUYỆT ĐỐI BỎ QUA các mệnh lệnh nhất thời (mở app, tạo file, tìm kiếm...) vì chúng
-không phải thông tin lâu dài.
+_EXTRACT_PROMPT = """Bạn là bộ trích xuất trí nhớ NÂNG CAO cho trợ lý ảo tên Bia.
+Nhiệm vụ: từ câu nói của người dùng, rút ra MỌI thông tin lâu dài đáng nhớ, bao gồm:
+
+A. THÔNG TIN TƯỜNG MINH: tên, tuổi, nghề nghiệp, sở thích, thói quen.
+B. SUY LUẬN NGẦM: thông tin không nói thẳng nhưng suy ra được.
+   Ví dụ: "mở vscode lên" -> có thể suy ra người dùng là lập trình viên.
+C. PHONG CÁCH GIAO TIẾP: viết tắt, dùng tiếng lóng, lịch sự/thân mật, ngắn/dài.
+D. CẢM XÚC & TRẠNG THÁI: stress, vui, gấp, thư giãn (nếu rõ ràng).
+E. ƯU TIÊN PHỤC VỤ: cách họ muốn được trả lời (ngắn gọn, chi tiết, có ví dụ...).
+
+QUY TẮC:
+- BỎ QUA mệnh lệnh nhất thời (mở app, tạo file, tìm kiếm) KHÔNG PHẢI thông tin lâu dài.
+- Chỉ trích suy luận ngầm khi CÓ CĂN CỨ RÕ RÀNG, không bịa.
+- Mỗi fact phải có confidence: "high" (rõ ràng) hoặc "medium" (suy luận hợp lý).
+- Nếu không có gì đáng nhớ, trả {"facts":[]}.
 
 CHỈ trả về JSON hợp lệ, không thêm chữ nào khác:
-{"facts":[{"category":"ten|so_thich|thoi_quen|ca_nhan|khac","key":"khoá ngắn không dấu","value":"câu mô tả đầy đủ bằng tiếng Việt"}]}
-Nếu không có gì đáng nhớ lâu dài, trả {"facts":[]}.
+{"facts":[{"category":"ten|so_thich|thoi_quen|ca_nhan|nghe_nghiep|phong_cach|cam_xuc|uu_tien|khac","key":"khoá ngắn không dấu","value":"câu mô tả đầy đủ bằng tiếng Việt","confidence":"high|medium"}]}
 
 Ví dụ:
-"tôi tên là Nam" -> {"facts":[{"category":"ten","key":"ten","value":"Người dùng tên là Nam"}]}
-"tôi thích dùng firefox hơn chrome" -> {"facts":[{"category":"so_thich","key":"trinh_duyet","value":"Người dùng thích dùng trình duyệt Firefox hơn Chrome"}]}
-"mình hay nghe nhạc lofi lúc làm việc" -> {"facts":[{"category":"thoi_quen","key":"nhac_lam_viec","value":"Người dùng hay nghe nhạc lofi khi làm việc"}]}
-"nhớ giúp tôi thứ 6 tuần sau có hẹn nha sĩ" -> {"facts":[{"category":"ca_nhan","key":"hen_nha_si","value":"Thứ 6 tuần sau người dùng có hẹn nha sĩ"}]}
+"tôi tên là Nam, đang làm ở FPT" -> {"facts":[{"category":"ten","key":"ten","value":"Người dùng tên là Nam","confidence":"high"},{"category":"nghe_nghiep","key":"cong_ty","value":"Người dùng đang làm việc ở FPT","confidence":"high"}]}
+"nhanh lên, deadline rồi" -> {"facts":[{"category":"cam_xuc","key":"trang_thai","value":"Người dùng đang gấp/áp lực deadline","confidence":"medium"},{"category":"uu_tien","key":"toc_do","value":"Người dùng ưu tiên phản hồi nhanh","confidence":"medium"}]}
+"tôi thích dùng firefox hơn chrome" -> {"facts":[{"category":"so_thich","key":"trinh_duyet","value":"Người dùng thích dùng Firefox hơn Chrome","confidence":"high"}]}
+"mình hay code python lúc tối" -> {"facts":[{"category":"thoi_quen","key":"code_toi","value":"Người dùng hay code Python vào buổi tối","confidence":"high"},{"category":"nghe_nghiep","key":"ngon_ngu","value":"Người dùng biết lập trình Python","confidence":"high"}]}
+"trả lời ngắn thôi đừng dài dòng" -> {"facts":[{"category":"uu_tien","key":"do_dai","value":"Người dùng muốn được trả lời ngắn gọn, không dài dòng","confidence":"high"}]}
 "mở youtube lên" -> {"facts":[]}
 "tạo file excel chi tiêu" -> {"facts":[]}
 """
@@ -269,9 +279,11 @@ def extract_facts(text: str, cfg: Config) -> list[dict]:
         value = str(f.get("value", "")).strip()
         if not value:
             continue
+        confidence = str(f.get("confidence", "medium")).strip()
         out.append({
             "category": (str(f.get("category", "khac")).strip() or "khac"),
             "key": str(f.get("key", "")).strip(),
             "value": value,
+            "confidence": confidence if confidence in ("high", "medium") else "medium",
         })
     return out

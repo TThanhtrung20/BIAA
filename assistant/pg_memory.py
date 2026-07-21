@@ -69,6 +69,11 @@ CREATE TABLE IF NOT EXISTS bia_feedback (
     no     INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (action, target)
 );
+CREATE TABLE IF NOT EXISTS bia_learner_state (
+    id         INTEGER PRIMARY KEY DEFAULT 1,
+    state_json JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """.format(dim=DIM)
 
 
@@ -519,3 +524,33 @@ def forget_facts() -> None:
     conn = _get()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM bia_neurons WHERE kind='fact'")
+
+
+# --------------------------------------------------------------------------- #
+# Learner state persistence (bảng bia_learner_state)
+# --------------------------------------------------------------------------- #
+@_guard
+def load_learner_state() -> dict:
+    """Nạp state của AdaptiveBehavior từ DB. Trả {} nếu chưa có."""
+    conn = _get()
+    with conn.cursor() as cur:
+        cur.execute("SELECT state_json FROM bia_learner_state WHERE id = 1")
+        row = cur.fetchone()
+    if row and row[0]:
+        import json
+        return row[0] if isinstance(row[0], dict) else json.loads(row[0])
+    return {}
+
+
+@_guard
+def save_learner_state(data: dict) -> None:
+    """Lưu state của AdaptiveBehavior vào DB (upsert)."""
+    import json
+    conn = _get()
+    json_str = json.dumps(data, ensure_ascii=False)
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO bia_learner_state (id, state_json, updated_at) "
+            "VALUES (1, %s::jsonb, now()) "
+            "ON CONFLICT (id) DO UPDATE SET state_json = %s::jsonb, updated_at = now()",
+            (json_str, json_str))

@@ -260,25 +260,51 @@ def learn(text: str, cfg: Config) -> list[dict]:
     """Tự học: nhờ LLM trích thông tin lâu dài từ câu nói rồi lưu vào hồ sơ.
 
     Trả danh sách fact đã học được (có thể rỗng). Nuốt mọi lỗi.
+    Tích hợp AdaptiveBehavior: ghi nhận kết quả trích xuất cho meta-learning.
     """
     from .llm import extract_facts
+    from .learner import get_learner, save_state_async
     try:
         facts = extract_facts(text, cfg)
     except Exception:   # noqa: BLE001
-        return []
+        facts = []
+
+    # Meta-learning: ghi nhận hiệu quả trích xuất
+    learner = get_learner()
+    learner.observe_extraction(text, len(facts))
+
     learned = []
     for f in facts:
         if remember_fact(f["value"], cfg, category=f.get("category", "khac"),
                           key=f.get("key", "")):
             learned.append(f)
+
+    # Lưu state learner định kỳ (mỗi 10 lần learn)
+    if hasattr(learn, "_call_count"):
+        learn._call_count += 1
+    else:
+        learn._call_count = 1
+    if learn._call_count % 10 == 0:
+        save_state_async()
+
     return learned
 
 
-def learn_async(text: str, cfg: Config) -> None:
-    """Học ở thread nền để không làm chậm phản hồi cho người dùng."""
+def learn_async(text: str, cfg: Config, action: str = "",
+                target: str = "", response: str = "") -> None:
+    """Học ở thread nền: trích xuất fact + cập nhật adaptive learner."""
     if not getattr(cfg, "auto_learn", True):
         return
-    threading.Thread(target=lambda: learn(text, cfg), daemon=True).start()
+
+    def _do_learn():
+        from .learner import get_learner
+        learner = get_learner()
+        # Quan sát tương tác cho pattern recognition + preference tracking
+        learner.observe(text, action, target, response)
+        # Trích xuất fact qua LLM
+        learn(text, cfg)
+
+    threading.Thread(target=_do_learn, daemon=True).start()
 
 
 def recall_facts(query: str, cfg: Config, top_k: int = 3,
@@ -330,9 +356,17 @@ def forget_facts() -> None:
 # --------------------------------------------------------------------------- #
 # Tầng 3: học từ phản hồi (đồng ý / từ chối)
 # --------------------------------------------------------------------------- #
-def record_feedback(action: str, target: str, approved: bool) -> None:
+def record_feedback(action: str, target: str, approved: bool,
+                    response_length: int = 0) -> None:
     if action in _SKIP_ACTIONS or not action:
         return
+    # Feed vào adaptive learner
+    try:
+        from .learner import get_learner
+        learner = get_learner()
+        learner.observe_feedback(response_length, approved)
+    except Exception:  # noqa: BLE001
+        pass
     pg = _pg()
     if pg is not None:
         try:
@@ -369,7 +403,7 @@ def approval_rate(action: str, target: str) -> tuple[int, int, float | None]:
 # Ngữ cảnh cho LLM + tóm tắt cho người dùng
 # --------------------------------------------------------------------------- #
 def build_context(query: str, cfg: Config) -> str:
-    """Ghép ngữ cảnh ngắn từ trí nhớ (hồ sơ + thói quen + việc tương tự)."""
+    """Ghép ngữ cảnh ngắn từ trí nhớ (hồ sơ + thói quen + việc tương tự + adaptive)."""
     try:
         q = _embed(query, cfg)
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError, ValueError):
@@ -377,9 +411,18 @@ def build_context(query: str, cfg: Config) -> str:
     pg = _pg()
     if pg is not None:
         try:
-            return pg.build_context(query, q)
+            ctx = pg.build_context(query, q)
         except pg.PgError:
+            ctx = ""
+        # Thêm adaptive context từ learner
+        try:
+            from .learner import get_learner
+            adaptive = get_learner().build_adaptive_context()
+            if adaptive:
+                ctx = ctx + "\n" + adaptive if ctx else adaptive
+        except Exception:  # noqa: BLE001
             pass
+        return ctx
 
     store = _load()
     lines: list[str] = []
@@ -418,6 +461,15 @@ def build_context(query: str, cfg: Config) -> str:
         lines.append("Thói quen thường dùng:")
         for key, count in top:
             lines.append(f"- {key} (đã làm {count} lần)")
+
+    # Adaptive context từ learner (pattern + preference + reflection)
+    try:
+        from .learner import get_learner
+        adaptive = get_learner().build_adaptive_context()
+        if adaptive:
+            lines.append(adaptive)
+    except Exception:  # noqa: BLE001
+        pass
 
     return "\n".join(lines)
 

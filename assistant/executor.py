@@ -12,6 +12,7 @@ from .intents import (
     OPEN_APP,
     OPEN_URL,
     SEARCH_WEB,
+    SHOW_LOCATION,
     UNKNOWN,
     WEB_ANSWER,
     Intent,
@@ -25,6 +26,8 @@ def execute(intent: Intent, cfg=None) -> str:
             return system.open_url(intent.target)
         if intent.action == SEARCH_WEB:
             return system.search_web(intent.target)
+        if intent.action == SHOW_LOCATION:
+            return system.show_location(intent.target)
         if intent.action == OPEN_APP:
             return system.open_app(intent.target)
         if intent.action == GET_DATETIME:

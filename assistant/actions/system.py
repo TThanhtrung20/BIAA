@@ -45,6 +45,22 @@ def search_web(query: str) -> str:
     return open_url(url)
 
 
+def show_location(place: str) -> str:
+    """Mở vị trí/địa điểm trên Google Maps.
+
+    `place` có thể là địa chỉ, tên địa điểm, hoặc toạ độ "lat,long".
+    Nếu để trống -> mở bản đồ tại vị trí hiện tại (Maps tự định vị theo IP).
+    """
+    place = (place or "").strip()
+    if not place:
+        url = "https://www.google.com/maps"
+        open_url(url)
+        return "Đã mở Google Maps ở vị trí hiện tại của bạn."
+    url = "https://www.google.com/maps/search/?api=1&query=" + quote_plus(place)
+    open_url(url)
+    return f"Đã mở vị trí '{place}' trên Google Maps."
+
+
 def open_app(name: str) -> str:
     if not name:
         raise ValueError("Tên ứng dụng trống")

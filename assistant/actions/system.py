@@ -131,35 +131,75 @@ def _travel_mode(text: str) -> str:
     return "driving"
 
 
+# Tuyến đường vừa xem gần nhất: (origin, destination, travelmode) để "bắt đầu đi"
+_last_route: tuple[str, str, str] | None = None
+
+# Câu lệnh bắt đầu dẫn đường (navigation) cho tuyến vừa xem
+_NAV_START_KW = ("bat dau di", "bat dau chi duong", "bat dau dan duong",
+                 "bat dau di chuyen", "di thoi", "khoi hanh", "len duong",
+                 "dan duong di", "bat dau nao")
+
+
+def _start_navigation() -> str:
+    """Mở Google Maps ở CHẾ ĐỘ DẪN ĐƯỜNG cho tuyến vừa xem (dir_action=navigate)."""
+    if not _last_route:
+        return ("Mình chưa có tuyến nào. Bạn bảo mình chỉ đường trước nhé, "
+                "vd 'chỉ đường từ A đến B'.")
+    origin, dest, travel = _last_route
+    url = "https://www.google.com/maps/dir/?api=1&destination=" + quote_plus(dest)
+    if origin:
+        url += "&origin=" + quote_plus(origin)
+    url += "&travelmode=" + travel + "&dir_action=navigate"
+    open_url(url)
+    return (f"Bắt đầu dẫn đường tới '{dest}' 🧭 — mình sẽ chỉ từng chặng, "
+            "bạn cứ đi theo nhé!")
+
+
 def directions(spec: str, mode: str = "") -> str:
     """Chỉ đường A->B trên Google Maps (đường ngắn nhất, kèm quãng đường & thời gian).
 
     `spec`: mô tả tuyến, vd 'từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3'.
-    Google Maps sẽ tự vẽ đường đi tối ưu, hiện khoảng cách, thời gian, dẫn đường.
+    Nếu `spec` là lệnh 'bắt đầu đi' -> vào thẳng chế độ dẫn đường cho tuyến vừa xem.
     """
+    global _last_route
     spec = (spec or "").strip()
+
+    from ..voice.wake import normalize as _norm
+    ts = _norm(spec)
+
+    # "bắt đầu đi" / "đi thôi" / "khởi hành" -> dẫn đường tuyến vừa xem
+    if any(k in ts for k in _NAV_START_KW):
+        return _start_navigation()
+
     if not spec:
         return "Bạn cho mình biết đi từ đâu đến đâu nhé."
 
     origin, dest = _parse_route(spec)
     if not dest:
+        # Không có điểm đến rõ ràng: nếu vừa có tuyến thì coi là bắt đầu đi
+        if _last_route:
+            return _start_navigation()
         return "Mình chưa rõ điểm đến. Bạn nói lại kiểu 'từ A đến B' giúp mình nhé."
 
     travel = mode or _travel_mode(spec)
 
-    url = "https://www.google.com/maps/dir/?api=1"
     use_origin = origin and origin.lower() not in _HERE_WORDS
+    origin_saved = origin if use_origin else ""
+    _last_route = (origin_saved, dest, travel)   # nhớ để "bắt đầu đi"
+
+    url = "https://www.google.com/maps/dir/?api=1"
     if use_origin:
         url += "&origin=" + quote_plus(origin)
     url += "&destination=" + quote_plus(dest)
     url += "&travelmode=" + travel
     open_url(url)
 
+    tail = " Nói 'bắt đầu đi' để mình dẫn đường từng chặng nhé."
     if use_origin:
-        return (f"Đang chỉ đường từ '{origin}' đến '{dest}' — Google Maps sẽ hiện "
-                "đường ngắn nhất, quãng đường và thời gian đi.")
-    return (f"Đang chỉ đường tới '{dest}' từ vị trí hiện tại của bạn — kèm quãng "
-            "đường, thời gian và hướng dẫn đi.")
+        return (f"Đang chỉ đường từ '{origin}' đến '{dest}' — Google Maps hiện "
+                f"đường ngắn nhất, quãng đường và thời gian.{tail}")
+    return (f"Đang chỉ đường tới '{dest}' từ vị trí hiện tại — kèm quãng đường "
+            f"và thời gian.{tail}")
 
 
 _YT_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "

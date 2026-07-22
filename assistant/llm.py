@@ -6,11 +6,14 @@ JSON theo schema định sẵn.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 
 from .config import Config
-from .intents import CHAT, NO_CONFIRM_ACTIONS, UNKNOWN, VALID_ACTIONS, Intent
+from .intents import (CHAT, GET_DATETIME, NO_CONFIRM_ACTIONS, PLAY_MUSIC,
+                      SCROLL, UNKNOWN, VALID_ACTIONS, Intent)
+from .voice.wake import normalize as _norm
 
 SYSTEM_PROMPT = """Bạn là Bia, một trợ lý ảo thân thiện chạy trên máy tính Linux.
 Tên của bạn là Bia. Khi người dùng chào hoặc hỏi tên, hãy tự xưng là Bia.
@@ -113,8 +116,80 @@ Người dùng: "bạn tên gì"
 """
 
 
+# --------------------------------------------------------------------------- #
+# FAST-PATH: nhận diện lệnh phổ biến bằng luật (KHÔNG gọi LLM -> tức thì).
+# Chỉ dùng cho các hành động an toàn, không cần xác nhận. Nếu không chắc -> None
+# để LLM xử lý như bình thường.
+# --------------------------------------------------------------------------- #
+_GREETINGS = ("chao", "hello", "hi", "alo", "a lo", "hey", "xin chao")
+_MUSIC_KW = ("mo nhac", "phat nhac", "nghe nhac", "bat nhac", "mo bai",
+             "phat bai", "bat bai", "mo bai hat")
+
+
+_MUSIC_STOP = {"cho", "tôi", "mình", "giúp", "đi", "nhé", "với", "nào", "ạ",
+               "youtube", "trên", "hộ", "giùm", "dùm", "lên", "bài", "hát",
+               "nhạc", "của", "bản", "mở", "bật", "phát", "nghe"}
+
+
+def _music_target(low: str) -> str:
+    """Lấy phần tên bài/ca sĩ sau từ khoá nhạc (lọc theo TỪ, giữ nguyên dấu)."""
+    m = re.search(r"(?:nhạc|bài hát|bài|bật|phát|nghe|mở)\s+(.+)$", low)
+    if not m:
+        return ""
+    words = m.group(1).strip(" ,.!?").split()
+    # bỏ các từ khoá/đệm ở ĐẦU cho tới khi gặp từ có nghĩa
+    while words and words[0] in _MUSIC_STOP:
+        words = words[1:]
+    # bỏ từ đệm ở CUỐI
+    while words and words[-1] in _MUSIC_STOP:
+        words = words[:-1]
+    return " ".join(words)
+
+
+def _fast_intent(text: str) -> Intent | None:
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    low = raw.lower()
+    t = _norm(raw)   # bỏ dấu, lowercase
+
+    # 1) Cuộn màn hình
+    if any(k in t for k in ("cuon", "luot", "keo")) or "scroll" in t:
+        if any(k in t for k in ("xuong", "duoi", "down")):
+            return Intent(action=SCROLL, target="down", needs_confirmation=False)
+        if any(k in t for k in ("len", "tren", "up")):
+            return Intent(action=SCROLL, target="up", needs_confirmation=False)
+
+    # 2) Ngày/giờ
+    if any(k in t for k in ("may gio", "gio roi", "ngay may", "ngay bao nhieu",
+                            "thu may", "hom nay ngay", "hom nay la thu")):
+        return Intent(action=GET_DATETIME, target="", needs_confirmation=False)
+
+    # 3) Phát nhạc
+    if any(k in t for k in _MUSIC_KW):
+        return Intent(action=PLAY_MUSIC, target=_music_target(low),
+                      needs_confirmation=False)
+
+    # 4) Chào hỏi -> trả lời cố định (không cần LLM)
+    words = t.split()
+    if words and words[0] in _GREETINGS and len(words) <= 4:
+        return Intent(
+            action=CHAT, target="",
+            reply="Chào bạn! Mình là Bia đây, mình giúp được gì cho bạn?",
+            needs_confirmation=False)
+
+    return None
+
+
 def parse_intent(text: str, cfg: Config, context: str = "") -> Intent:
-    """Phân tích câu nói -> Intent. Không bao giờ ném lỗi ra ngoài."""
+    """Phân tích câu nói -> Intent. Không bao giờ ném lỗi ra ngoài.
+
+    Thử fast-path bằng luật trước (tức thì); không khớp mới gọi LLM.
+    """
+    fast = _fast_intent(text)
+    if fast is not None:
+        return fast
+
     user_content = text.strip()
     if context:
         user_content = (
@@ -163,7 +238,8 @@ def _chat_json(cfg: Config, system: str, user: str) -> dict:
         ],
         "stream": False,
         "format": "json",
-        "options": {"temperature": 0.2},
+        "keep_alive": "30m",     # giữ model trong RAM, tránh nạp lại mỗi lần (nhanh hơn)
+        "options": {"temperature": 0.2, "num_predict": 256},  # JSON ngắn -> giới hạn output
     }
     req = urllib.request.Request(
         url,

@@ -105,18 +105,54 @@ def play_music(query: str) -> str:
     return f"Đã tìm '{query}' trên YouTube để bạn chọn nghe."
 
 
-def scroll(direction: str = "down", amount: int = 8) -> str:
-    """Cuộn màn hình lên/xuống ở cửa sổ đang active (dùng pynput).
+_BROWSER_CLASSES = ("chrome", "chromium", "firefox", "navigator", "brave",
+                    "msedge", "microsoft-edge", "opera", "vivaldi")
 
-    direction: 'up' | 'down' | 'top' | 'bottom'
-    amount: số nấc cuộn (mỗi nấc ~ 1 lần lăn chuột).
+
+def _find_content_window():
+    """Tìm cửa sổ nội dung (ưu tiên trình duyệt) để cuộn.
+
+    Trả (center_x, center_y) hoặc None. Dùng wmctrl -lxG.
+    """
+    if not shutil.which("wmctrl"):
+        return None
+    try:
+        out = subprocess.check_output(["wmctrl", "-lxG"],
+                                      stderr=subprocess.DEVNULL, text=True)
+    except Exception:   # noqa: BLE001
+        return None
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 8:
+            continue
+        # ID, desktop, x, y, w, h, class, host, title...
+        try:
+            x, y, w, h = (int(parts[2]), int(parts[3]),
+                          int(parts[4]), int(parts[5]))
+        except ValueError:
+            continue
+        wclass = parts[6].lower()
+        if any(b in wclass for b in _BROWSER_CLASSES) and w > 100 and h > 100:
+            return (x + w // 2, y + h // 2)
+    return None
+
+
+def scroll(direction: str = "down", amount: int = 8) -> str:
+    """Cuộn nội dung trang (ưu tiên trình duyệt) lên/xuống.
+
+    Đưa con trỏ chuột qua cửa sổ trình duyệt rồi cuộn ở đó (không cướp focus
+    bàn phím), sau đó trả chuột về vị trí cũ. Nếu không thấy trình duyệt thì
+    cuộn ngay tại vị trí chuột hiện tại.
+
+    direction: 'up' | 'down'; amount: số nấc cuộn.
     """
     direction = (direction or "down").strip().lower()
-    # Chuẩn hoá vài cách nói tiếng Việt
     if direction in ("lên", "len", "up", "trên", "tren"):
         direction = "up"
     elif direction in ("xuống", "xuong", "down", "dưới", "duoi"):
         direction = "down"
+    if direction not in ("up", "down"):
+        return "Mình chỉ cuộn lên hoặc xuống thôi nhé."
 
     try:
         from pynput.mouse import Controller
@@ -126,18 +162,31 @@ def scroll(direction: str = "down", amount: int = 8) -> str:
 
     mouse = Controller()
     steps = max(1, int(amount))
-    if direction == "up":
-        for _ in range(steps):
-            mouse.scroll(0, 1)
-            time.sleep(0.02)
-        return "Đã cuộn lên."
-    elif direction == "down":
-        for _ in range(steps):
-            mouse.scroll(0, -1)
-            time.sleep(0.02)
-        return "Đã cuộn xuống."
-    else:
-        return "Mình chỉ cuộn lên hoặc xuống thôi nhé."
+    dy = 1 if direction == "up" else -1
+
+    target = _find_content_window()
+    old_pos = None
+    if target is not None:
+        try:
+            old_pos = mouse.position          # lưu vị trí chuột hiện tại
+            mouse.position = target           # đưa chuột qua trình duyệt
+            time.sleep(0.05)
+        except Exception:   # noqa: BLE001
+            old_pos = None
+
+    for _ in range(steps):
+        mouse.scroll(0, dy)
+        time.sleep(0.02)
+
+    if old_pos is not None:
+        try:
+            time.sleep(0.03)
+            mouse.position = old_pos          # trả chuột về chỗ cũ
+        except Exception:   # noqa: BLE001
+            pass
+
+    where = " trang web" if target is not None else ""
+    return f"Đã cuộn {'lên' if direction == 'up' else 'xuống'}{where}."
 
 
 def _current_volume() -> int | None:

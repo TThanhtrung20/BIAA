@@ -449,7 +449,7 @@ class _Voice(QObject):
             self.sig_bubble.emit(answer)
             self._tts.speak(answer)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
-            memory.learn_async(text, self.cfg)
+            memory.learn_async(text, self.cfg, intent.action, intent.target, answer)
             return
 
         # 2) Chỉ đọc thông tin (giờ/ngày, tin tức...) -> làm ngay rồi đọc kết quả
@@ -466,7 +466,7 @@ class _Voice(QObject):
             self.sig_bubble.emit(result)
             self._tts.speak(result)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
-            memory.learn_async(text, self.cfg)
+            memory.learn_async(text, self.cfg, intent.action, intent.target, result)
             return
 
         # 3) Hành động thay đổi máy -> xác nhận trước
@@ -487,7 +487,7 @@ class _Voice(QObject):
             self._tts.speak(result)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
             memory.record_feedback(intent.action, intent.target, True)
-            memory.learn_async(text, self.cfg)
+            memory.learn_async(text, self.cfg, intent.action, intent.target, result)
         else:
             self._play_anim("No")                              # lắc đầu
             self.sig_state.emit("talk")

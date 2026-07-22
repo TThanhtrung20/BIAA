@@ -74,7 +74,7 @@ def run() -> None:
             answer = execute(intent, cfg)   # CHAT/UNKNOWN -> reply; datetime/web -> kết quả thật
             print(f"🤖 {answer}\n")
             memory.add_interaction(text, intent.action, intent.target, cfg)
-            memory.learn_async(text, cfg)          # tự học thông tin lâu dài
+            memory.learn_async(text, cfg, intent.action, intent.target, answer)
             continue
 
         # Có thao tác lên máy hoặc tạo file -> hỏi xác nhận trước
@@ -82,11 +82,12 @@ def run() -> None:
             print(f"⚠️  Lưu ý: hành động này sẽ thay đổi dữ liệu (mức: {intent.risk}).")
         if ask_confirmation(intent.reply):
             print("⏳ Đang thực hiện...")
-            print(f"✅ {execute(intent, cfg)}\n")
+            result = execute(intent, cfg)
+            print(f"✅ {result}\n")
             # Chỉ ghi nhớ khi người dùng thực sự đồng ý thực hiện
             memory.add_interaction(text, intent.action, intent.target, cfg)
             memory.record_feedback(intent.action, intent.target, True)
-            memory.learn_async(text, cfg)
+            memory.learn_async(text, cfg, intent.action, intent.target, result)
         else:
             print("❌ Đã huỷ, không thực hiện.\n")
             memory.record_feedback(intent.action, intent.target, False)

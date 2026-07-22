@@ -121,9 +121,32 @@ Người dùng: "bạn tên gì"
 # Chỉ dùng cho các hành động an toàn, không cần xác nhận. Nếu không chắc -> None
 # để LLM xử lý như bình thường.
 # --------------------------------------------------------------------------- #
-_GREETINGS = ("chao", "hello", "hi", "alo", "a lo", "hey", "xin chao")
+_GREETINGS = ("chao", "hello", "hi", "alo", "a lo", "hey", "xin chao", "bia")
 _MUSIC_KW = ("mo nhac", "phat nhac", "nghe nhac", "bat nhac", "mo bai",
              "phat bai", "bat bai", "mo bai hat")
+
+# Câu người dùng xưng tên / muốn được gọi là gì
+_NAME_TRIGGERS = ("gọi mình là", "gọi tôi là", "gọi tớ là", "gọi em là",
+                  "gọi anh là", "gọi chị là", "tôi tên là", "mình tên là",
+                  "tớ tên là", "em tên là", "tên tôi là", "tên mình là",
+                  "tên tớ là", "tên là")
+_NAME_TAIL = {"nhé", "nha", "nhá", "ạ", "đi", "với", "nghe", "nhaa", "nhee"}
+
+
+def _name_from(low: str) -> str:
+    """Trích tên người dùng từ câu như 'gọi mình là Trung' (giữ nguyên dấu)."""
+    for trig in _NAME_TRIGGERS:
+        i = low.find(trig)
+        if i < 0:
+            continue
+        rest = low[i + len(trig):].strip(" ,.!?")
+        words = rest.split()
+        while words and words[-1] in _NAME_TAIL:
+            words = words[:-1]
+        words = words[:4]                     # tên tối đa 4 từ
+        if words:
+            return " ".join(words).title()
+    return ""
 
 
 _MUSIC_STOP = {"cho", "tôi", "mình", "giúp", "đi", "nhé", "với", "nào", "ạ",
@@ -146,10 +169,34 @@ def _music_target(low: str) -> str:
     return " ".join(words)
 
 
+def _strip_wake(raw: str) -> str:
+    """Bỏ tiền tố gọi tên 'bia', 'bia ơi', 'a lô bia'... ở đầu câu."""
+    t = _norm(raw)
+    words = raw.split()
+    tw = t.split()
+    # bỏ 'a lo'/'alo' đứng đầu
+    while tw and tw[0] in ("alo", "a", "lo", "ê", "e"):
+        tw = tw[1:]; words = words[1:]
+    # bỏ 'bia' + filler theo sau ('ơi', 'à', 'ê')
+    if tw and tw[0] == "bia":
+        tw = tw[1:]; words = words[1:]
+        while tw and tw[0] in ("oi", "a", "à", "e", "ê", "nay", "ne"):
+            tw = tw[1:]; words = words[1:]
+    return " ".join(words).strip(" ,.!?")
+
+
 def _fast_intent(text: str) -> Intent | None:
     raw = (text or "").strip()
     if not raw:
         return None
+
+    # Bỏ tiền tố gọi tên: "bia mở nhạc" -> "mở nhạc"; "bia ơi" -> "" (chào)
+    stripped = _strip_wake(raw)
+    if not stripped:
+        return Intent(action=CHAT, target="",
+                      reply="Bia đây! Bạn cần mình giúp gì nào?",
+                      needs_confirmation=False)
+    raw = stripped
     low = raw.lower()
     t = _norm(raw)   # bỏ dấu, lowercase
 
@@ -165,12 +212,20 @@ def _fast_intent(text: str) -> Intent | None:
                             "thu may", "hom nay ngay", "hom nay la thu")):
         return Intent(action=GET_DATETIME, target="", needs_confirmation=False)
 
-    # 3) Phát nhạc
+    # 3) Xưng tên / muốn được gọi là gì -> xác nhận + ghi nhớ ngay
+    name = _name_from(low)
+    if name:
+        return Intent(
+            action=CHAT, target=name,
+            reply=f"Rõ rồi, từ giờ mình sẽ gọi bạn là {name} nhé!",
+            needs_confirmation=False)
+
+    # 4) Phát nhạc
     if any(k in t for k in _MUSIC_KW):
         return Intent(action=PLAY_MUSIC, target=_music_target(low),
                       needs_confirmation=False)
 
-    # 4) Chào hỏi -> trả lời cố định (không cần LLM)
+    # 5) Chào hỏi -> trả lời cố định (không cần LLM)
     words = t.split()
     if words and words[0] in _GREETINGS and len(words) <= 4:
         return Intent(

@@ -25,3 +25,6 @@ psycopg2-binary==2.9.12
 
 # --- Giao diện web xem mạng nơ-ron (python run.py brain) ---
 flask==3.1.1
+
+# --- Điều khiển chuột/bàn phím: cuộn màn hình lên/xuống (X11/Wayland) ---
+pynput==1.8.2

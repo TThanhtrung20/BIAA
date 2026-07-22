@@ -28,6 +28,28 @@ _ANIM_NAMES = {
     "Dance", "Death", "Idle", "Jump", "No", "Punch", "Running",
     "Sitting", "Standing", "ThumbsUp", "Walking", "WalkJump", "Wave", "Yes",
 }
+
+# Mỗi hành động của Bia -> một động tác biểu cảm tương ứng của mascot.
+# Khi Bia thực hiện yêu cầu, mascot sẽ diễn động tác này (một lần rồi về Idle).
+_ACTION_ANIM = {
+    "play_music":       "Dance",     # phát nhạc -> nhảy múa
+    "scroll":           "Jump",      # cuộn màn hình -> nhún nhảy
+    "open_url":         "ThumbsUp",  # mở web -> giơ ngón cái
+    "open_app":         "ThumbsUp",  # mở app -> giơ ngón cái
+    "search_web":       "ThumbsUp",  # tìm kiếm -> giơ ngón cái
+    "show_location":    "Running",   # dẫn đường -> chạy
+    "get_datetime":     "Yes",       # xem giờ -> gật đầu
+    "web_answer":       "Yes",       # tra tin -> gật đầu
+    "create_word":      "ThumbsUp",
+    "create_excel":     "ThumbsUp",
+    "create_powerpoint": "ThumbsUp",
+}
+
+# Từ khoá chào hỏi -> mascot vẫy tay (Wave) khi chỉ trò chuyện.
+_GREETING_WORDS = (
+    "chào", "chao", "hello", "hi", "alo", "a lô", "a lo", "hey", "ê ",
+    "xin chào", "xin chao",
+)
 # Động tác lặp vô hạn (trạng thái nền); còn lại là "một lần"
 _LOOP = {"Idle", "Walking", "Running"}
 
@@ -380,6 +402,12 @@ class _Voice(QObject):
             self.sig_bubble.emit("")
             self.busy = False
 
+    def _play_anim(self, name: str):
+        """Cho mascot diễn một động tác (gọi an toàn từ thread nền qua QTimer)."""
+        if not name:
+            return
+        QTimer.singleShot(0, lambda: self.ctrl.play_action(name))
+
     def _converse(self, command: str, manual: bool):
         from .. import memory
         from ..confirm import is_affirmative
@@ -411,9 +439,12 @@ class _Voice(QObject):
         context = memory.build_context(text, self.cfg)
         intent = parse_intent(text, self.cfg, context)
 
-        # 1) Chỉ trò chuyện -> nói câu trả lời
+        # 1) Chỉ trò chuyện -> nói câu trả lời (vẫy tay nếu là lời chào)
         if intent.action in (CHAT, UNKNOWN):
             answer = intent.reply or "..."
+            low = text.lower()
+            if any(w in low for w in _GREETING_WORDS):
+                self._play_anim("Wave")
             self.sig_state.emit("talk")
             self.sig_bubble.emit(answer)
             self._tts.speak(answer)
@@ -429,6 +460,7 @@ class _Voice(QObject):
                 self._tts.speak(intent.reply)
             self.sig_state.emit("think")
             self.sig_bubble.emit("⏳ Để mình xem nhé...")
+            self._play_anim(_ACTION_ANIM.get(intent.action))   # diễn động tác
             result = execute(intent, self.cfg)
             self.sig_state.emit("talk")
             self.sig_bubble.emit(result)
@@ -446,7 +478,9 @@ class _Voice(QObject):
         self.sig_bubble.emit("🎤 (nói 'có' hoặc 'không')")
         answer = self._stt.listen(max_seconds=5.0)
         if is_affirmative(answer):
+            self._play_anim("Yes")                             # gật đầu đồng ý
             self.sig_state.emit("think")
+            self._play_anim(_ACTION_ANIM.get(intent.action))   # rồi diễn động tác
             result = execute(intent, self.cfg)
             self.sig_state.emit("talk")
             self.sig_bubble.emit(result)
@@ -455,6 +489,7 @@ class _Voice(QObject):
             memory.record_feedback(intent.action, intent.target, True)
             memory.learn_async(text, self.cfg)
         else:
+            self._play_anim("No")                              # lắc đầu
             self.sig_state.emit("talk")
             self.sig_bubble.emit("Ok, mình không làm nữa.")
             self._tts.speak("Được, mình không làm nữa")

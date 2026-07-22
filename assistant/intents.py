@@ -13,6 +13,8 @@ CREATE_PPTX = "create_powerpoint"    # tạo file PowerPoint (.pptx)
 GET_DATETIME = "get_datetime"        # trả lời ngày/giờ hiện tại (offline)
 WEB_ANSWER = "web_answer"            # tra thông tin mới trên internet rồi trả lời
 SHOW_LOCATION = "show_location"      # mở vị trí/địa điểm trên bản đồ (Google Maps)
+PLAY_MUSIC = "play_music"            # phát nhạc/video trên YouTube
+SCROLL = "scroll"                    # cuộn màn hình lên/xuống (target = 'up'|'down')
 CHAT = "chat"                        # chỉ trò chuyện/trả lời
 UNKNOWN = "unknown"                  # không hiểu
 
@@ -20,11 +22,13 @@ VALID_ACTIONS = {
     OPEN_URL, OPEN_APP, SEARCH_WEB,
     CREATE_WORD, CREATE_EXCEL, CREATE_PPTX,
     GET_DATETIME, WEB_ANSWER, SHOW_LOCATION,
+    PLAY_MUSIC, SCROLL,
     CHAT, UNKNOWN,
 }
 
 # Hành động chỉ ĐỌC/trả lời thông tin, an toàn -> không cần xác nhận
-NO_CONFIRM_ACTIONS = {GET_DATETIME, WEB_ANSWER, SHOW_LOCATION, CHAT, UNKNOWN}
+NO_CONFIRM_ACTIONS = {GET_DATETIME, WEB_ANSWER, SHOW_LOCATION, PLAY_MUSIC, SCROLL,
+                      CHAT, UNKNOWN}
 
 # --- Mức độ rủi ro ---
 SAFE = "safe"            # không thay đổi dữ liệu, dễ đảo ngược
@@ -38,6 +42,8 @@ RISK_LEVEL = {
     GET_DATETIME: SAFE,
     WEB_ANSWER: SAFE,
     SHOW_LOCATION: SAFE,
+    PLAY_MUSIC: SAFE,
+    SCROLL: SAFE,
     CHAT: SAFE,
     UNKNOWN: SAFE,
     # Tạo file -> có thay đổi dữ liệu trên ổ đĩa

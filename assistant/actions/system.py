@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import time
 from urllib.parse import quote_plus
 
 # Bản đồ tên ứng dụng thân thiện -> danh sách lệnh khả dĩ (thử lần lượt cho tới
@@ -59,6 +60,57 @@ def show_location(place: str) -> str:
     url = "https://www.google.com/maps/search/?api=1&query=" + quote_plus(place)
     open_url(url)
     return f"Đã mở vị trí '{place}' trên Google Maps."
+
+
+def play_music(query: str) -> str:
+    """Phát nhạc/video trên YouTube.
+
+    Mở kết quả tìm kiếm YouTube cho `query`; YouTube thường tự phát video đầu.
+    Nếu để trống -> mở trang chủ YouTube Music.
+    """
+    query = (query or "").strip()
+    if not query:
+        open_url("https://music.youtube.com")
+        return "Đã mở YouTube Music cho bạn."
+    # Trang kết quả tìm kiếm YouTube (video đầu tiên thường phát khi bấm vào)
+    url = "https://www.youtube.com/results?search_query=" + quote_plus(query)
+    open_url(url)
+    return f"Đã tìm '{query}' trên YouTube để bạn nghe nhạc."
+
+
+def scroll(direction: str = "down", amount: int = 8) -> str:
+    """Cuộn màn hình lên/xuống ở cửa sổ đang active (dùng pynput).
+
+    direction: 'up' | 'down' | 'top' | 'bottom'
+    amount: số nấc cuộn (mỗi nấc ~ 1 lần lăn chuột).
+    """
+    direction = (direction or "down").strip().lower()
+    # Chuẩn hoá vài cách nói tiếng Việt
+    if direction in ("lên", "len", "up", "trên", "tren"):
+        direction = "up"
+    elif direction in ("xuống", "xuong", "down", "dưới", "duoi"):
+        direction = "down"
+
+    try:
+        from pynput.mouse import Controller
+    except ImportError:
+        return ("Mình chưa cuộn được vì thiếu thư viện pynput. "
+                "Cài bằng: pip install pynput")
+
+    mouse = Controller()
+    steps = max(1, int(amount))
+    if direction == "up":
+        for _ in range(steps):
+            mouse.scroll(0, 1)
+            time.sleep(0.02)
+        return "Đã cuộn lên."
+    elif direction == "down":
+        for _ in range(steps):
+            mouse.scroll(0, -1)
+            time.sleep(0.02)
+        return "Đã cuộn xuống."
+    else:
+        return "Mình chỉ cuộn lên hoặc xuống thôi nhé."
 
 
 def open_app(name: str) -> str:

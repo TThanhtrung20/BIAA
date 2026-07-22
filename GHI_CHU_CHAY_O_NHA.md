@@ -48,9 +48,12 @@ pip install -r requirements.txt
 ## Bước 4 — Tải model Ollama
 
 ```bash
-ollama pull qwen2.5-coder:7b
-ollama pull nomic-embed-text
+ollama pull qwen2.5:3b          # hiểu lệnh + trò chuyện (nhanh, giỏi tiếng Việt)
+ollama pull nomic-embed-text    # tạo embedding cho trí nhớ
 ```
+
+> Máy yếu/không GPU nên dùng `qwen2.5:3b`. Máy mạnh có thể đổi `model` trong
+> config.json sang `qwen2.5:7b` hoặc lớn hơn để trả lời chất lượng hơn.
 
 ---
 
@@ -61,7 +64,7 @@ mkdir -p ~/.config/assistant
 cat > ~/.config/assistant/config.json << 'EOF'
 {
   "ollama_host": "http://localhost:11434",
-  "model": "qwen2.5-coder:7b",
+  "model": "qwen2.5:3b",
   "embed_model": "nomic-embed-text",
   "language": "vi",
   "use_postgres": true,

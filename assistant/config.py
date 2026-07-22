@@ -18,8 +18,9 @@ DATA_DIR = os.path.expanduser("~/.local/share/assistant")
 class Config:
     # Kết nối tới Ollama đang chạy local
     ollama_host: str = "http://localhost:11434"
-    # Model dùng để hiểu ý định (đã có sẵn trên máy)
-    model: str = "qwen2.5-coder:7b"
+    # Model dùng để hiểu ý định + trò chuyện. qwen2.5:3b (general) nhanh + giỏi
+    # tiếng Việt hơn bản coder, hợp chạy CPU. Đổi tại đây nếu muốn model khác.
+    model: str = "qwen2.5:3b"
     # Model tạo embedding cho "trí nhớ" (bước sau)
     embed_model: str = "nomic-embed-text"
     # Ngôn ngữ giao tiếp mặc định

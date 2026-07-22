@@ -59,26 +59,14 @@ Người dùng: "mở máy tính tính toán"
 Người dùng: "mở google tìm cách nấu phở bò"
 {"action":"search_web","target":"cách nấu phở bò","reply":"Bạn muốn mình mở trình duyệt tìm 'cách nấu phở bò' đúng không?","needs_confirmation":true}
 
-Người dùng: "bây giờ mấy giờ rồi"
-{"action":"get_datetime","target":"","reply":"","needs_confirmation":false}
-
-Người dùng: "hôm nay ngày bao nhiêu, thứ mấy"
-{"action":"get_datetime","target":"","reply":"","needs_confirmation":false}
-
 Người dùng: "cho mình bản tin mới nhất hôm nay"
 {"action":"web_answer","target":"","reply":"","needs_confirmation":false}
 
 Người dùng: "có luật giao thông gì mới không"
 {"action":"web_answer","target":"luật giao thông mới","reply":"","needs_confirmation":false}
 
-Người dùng: "cho tôi xem bài viết đó đi"
-{"action":"open_article","target":"","reply":"","needs_confirmation":false}
-
-Người dùng: "mở bài báo số 2"
+Người dùng: "mở bài báo số 2 (sau khi tra tin)"
 {"action":"open_article","target":"2","reply":"","needs_confirmation":false}
-
-Người dùng: "đọc tin đó cho tôi"
-{"action":"open_article","target":"","reply":"","needs_confirmation":false}
 
 Người dùng: "thời tiết Hà Nội hôm nay thế nào"
 {"action":"web_answer","target":"thời tiết Hà Nội hôm nay","reply":"","needs_confirmation":false}
@@ -86,56 +74,11 @@ Người dùng: "thời tiết Hà Nội hôm nay thế nào"
 Người dùng: "cho tôi xem vị trí Hồ Gươm trên bản đồ"
 {"action":"show_location","target":"Hồ Gươm Hà Nội","reply":"","needs_confirmation":false}
 
-Người dùng: "cho tôi xem khoảng cách từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3"
+Người dùng: "khoảng cách từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3"
 {"action":"directions","target":"từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3","reply":"","needs_confirmation":false}
-
-Người dùng: "chỉ đường tới sân bay Tân Sơn Nhất"
-{"action":"directions","target":"đến sân bay Tân Sơn Nhất","reply":"","needs_confirmation":false}
-
-Người dùng: "đi từ Hà Nội đến Hải Phòng bao xa"
-{"action":"directions","target":"từ Hà Nội đến Hải Phòng","reply":"","needs_confirmation":false}
-
-Người dùng: "bắt đầu đi"
-{"action":"directions","target":"bắt đầu đi","reply":"","needs_confirmation":false}
-
-Người dùng: "ok đi thôi"
-{"action":"directions","target":"đi thôi","reply":"","needs_confirmation":false}
-
-Người dùng: "quán cà phê gần đây ở đâu"
-{"action":"show_location","target":"quán cà phê gần đây","reply":"","needs_confirmation":false}
-
-Người dùng: "mình đang ở đâu trên bản đồ"
-{"action":"show_location","target":"","reply":"","needs_confirmation":false}
-
-Người dùng: "mở nhạc cho tôi nghe"
-{"action":"play_music","target":"","reply":"","needs_confirmation":false}
 
 Người dùng: "phát bài của Sơn Tùng MTP"
 {"action":"play_music","target":"Sơn Tùng MTP","reply":"","needs_confirmation":false}
-
-Người dùng: "mở youtube phát nhạc lofi đi"
-{"action":"play_music","target":"nhạc lofi","reply":"","needs_confirmation":false}
-
-Người dùng: "lướt xuống dưới"
-{"action":"scroll","target":"down","reply":"","needs_confirmation":false}
-
-Người dùng: "cuộn lên trên giúp mình"
-{"action":"scroll","target":"up","reply":"","needs_confirmation":false}
-
-Người dùng: "kéo xuống tí nữa"
-{"action":"scroll","target":"down","reply":"","needs_confirmation":false}
-
-Người dùng: "tăng âm lượng lên"
-{"action":"set_volume","target":"up","reply":"","needs_confirmation":false}
-
-Người dùng: "nhỏ tiếng lại giúp mình"
-{"action":"set_volume","target":"down","reply":"","needs_confirmation":false}
-
-Người dùng: "tắt tiếng đi"
-{"action":"set_volume","target":"mute","reply":"","needs_confirmation":false}
-
-Người dùng: "để âm lượng 50 phần trăm"
-{"action":"set_volume","target":"50","reply":"","needs_confirmation":false}
 
 Người dùng: "soạn giúp tôi file word về lợi ích của việc đọc sách"
 {"action":"create_word","target":"lợi ích của việc đọc sách","reply":"Bạn muốn mình soạn một file Word về 'lợi ích của việc đọc sách' đúng không?","needs_confirmation":true}

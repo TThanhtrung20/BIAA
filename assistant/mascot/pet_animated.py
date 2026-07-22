@@ -438,6 +438,7 @@ class _Voice(QObject):
         self.sig_bubble.emit("Bạn: " + text)
         self.sig_state.emit("think")
         context = memory.build_context(text, self.cfg)
+        memory.remember_turn("user", text)
         intent = parse_intent(text, self.cfg, context)
 
         # 1) Chỉ trò chuyện -> nói câu trả lời (vẫy tay nếu là lời chào)
@@ -449,6 +450,7 @@ class _Voice(QObject):
             self.sig_state.emit("talk")
             self.sig_bubble.emit(answer)
             self._tts.speak(answer)
+            memory.remember_turn("assistant", answer)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
             memory.learn_async(text, self.cfg, intent.action, intent.target, answer)
             return
@@ -466,6 +468,7 @@ class _Voice(QObject):
             self.sig_state.emit("talk")
             self.sig_bubble.emit(result)
             self._tts.speak(result)
+            memory.remember_turn("assistant", result)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
             memory.learn_async(text, self.cfg, intent.action, intent.target, result)
             return
@@ -486,6 +489,7 @@ class _Voice(QObject):
             self.sig_state.emit("talk")
             self.sig_bubble.emit(result)
             self._tts.speak(result)
+            memory.remember_turn("assistant", result)
             memory.add_interaction(text, intent.action, intent.target, self.cfg)
             memory.record_feedback(intent.action, intent.target, True)
             memory.learn_async(text, self.cfg, intent.action, intent.target, result)

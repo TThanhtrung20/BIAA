@@ -63,8 +63,9 @@ def run() -> None:
             print()
             continue
 
-        # Lấy ngữ cảnh từ trí nhớ (thói quen + yêu cầu tương tự) để cá nhân hoá
+        # Lấy ngữ cảnh từ trí nhớ (hội thoại gần đây + thói quen + việc tương tự)
         context = memory.build_context(text, cfg)
+        memory.remember_turn("user", text)          # ghi lượt của người dùng
         intent = parse_intent(text, cfg, context)
 
         # Trò chuyện / hỏi giờ ngày / tra tin tức... -> làm ngay, không cần xác nhận
@@ -73,6 +74,7 @@ def run() -> None:
                 print("⏳ Để mình xem nhé...")
             answer = execute(intent, cfg)   # CHAT/UNKNOWN -> reply; datetime/web -> kết quả thật
             print(f"🤖 {answer}\n")
+            memory.remember_turn("assistant", answer)
             memory.add_interaction(text, intent.action, intent.target, cfg)
             memory.learn_async(text, cfg, intent.action, intent.target, answer)
             continue
@@ -84,6 +86,7 @@ def run() -> None:
             print("⏳ Đang thực hiện...")
             result = execute(intent, cfg)
             print(f"✅ {result}\n")
+            memory.remember_turn("assistant", result)
             # Chỉ ghi nhớ khi người dùng thực sự đồng ý thực hiện
             memory.add_interaction(text, intent.action, intent.target, cfg)
             memory.record_feedback(intent.action, intent.target, True)

@@ -44,6 +44,7 @@ Quy tắc:
 - "chat": chỉ trò chuyện/trả lời, không thao tác máy. Khi đó needs_confirmation=false.
 - Mọi hành động thao tác máy hoặc tạo file thì needs_confirmation=true.
 - reply LUÔN bằng tiếng Việt, thân thiện, dạng hỏi lại để người dùng chốt.
+- QUAN TRỌNG về NGỮ CẢNH: nếu có phần "[Thông tin về người dùng]" kèm "Cuộc trò chuyện gần đây", hãy DÙNG nó để hiểu các từ chỉ định như "cái đó", "bài viết đó", "chủ đề vừa nói", "tin đó", "nó". Hãy THAY chúng bằng nội dung cụ thể suy ra từ cuộc trò chuyện để điền vào "target". VD nếu vừa nói về tin "Mỹ và Iran ở Hormuz" và người dùng bảo "search bài viết đó", thì target là "Mỹ Iran Hormuz" chứ KHÔNG phải "bài viết đó".
 
 Ví dụ:
 Người dùng: "mở youtube"

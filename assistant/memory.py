@@ -54,6 +54,36 @@ _CATEGORY_LABEL = {
 
 _lock = threading.Lock()     # tránh 2 thread ghi đè file cùng lúc
 
+# --------------------------------------------------------------------------- #
+# Trí nhớ NGẮN HẠN hội thoại: giữ vài lượt gần nhất (trong phiên) để hiểu ngữ
+# cảnh như "cái đó", "bài viết đó", "chủ đề vừa nói".
+# --------------------------------------------------------------------------- #
+from collections import deque as _deque
+
+_recent_turns: "_deque[tuple[str, str]]" = _deque(maxlen=8)   # (role, content)
+_recent_lock = threading.Lock()
+
+
+def remember_turn(role: str, content: str) -> None:
+    """Ghi một lượt hội thoại vào bộ đệm ngắn hạn (user/assistant)."""
+    content = (content or "").strip()
+    if not content:
+        return
+    with _recent_lock:
+        _recent_turns.append((role, content))
+
+
+def recent_dialogue(max_turns: int = 3) -> str:
+    """Trả vài lượt trao đổi gần nhất, dạng văn bản cho LLM đọc ngữ cảnh."""
+    with _recent_lock:
+        items = list(_recent_turns)[-max_turns * 2:]
+    lines = []
+    for role, content in items:
+        who = "Người dùng" if role == "user" else "Bia"
+        c = content if len(content) <= 220 else content[:220] + "..."
+        lines.append(f"{who}: {c}")
+    return "\n".join(lines)
+
 
 # --------------------------------------------------------------------------- #
 # Embedding + lưu trữ
@@ -408,6 +438,10 @@ def build_context(query: str, cfg: Config) -> str:
         q = _embed(query, cfg)
     except (urllib.error.URLError, TimeoutError, ConnectionError, OSError, ValueError):
         q = []
+    # Hội thoại gần đây (trí nhớ ngắn hạn) -> luôn đặt đầu để giải nghĩa "cái đó"
+    dlg = recent_dialogue()
+    dlg_block = f"Cuộc trò chuyện gần đây:\n{dlg}\n" if dlg else ""
+
     pg = _pg()
     if pg is not None:
         try:
@@ -422,11 +456,13 @@ def build_context(query: str, cfg: Config) -> str:
                 ctx = ctx + "\n" + adaptive if ctx else adaptive
         except Exception:  # noqa: BLE001
             pass
-        return ctx
+        return (dlg_block + ctx).strip() if dlg_block else ctx
 
     store = _load()
     lines: list[str] = []
     shown: set[str] = set()
+    if dlg_block:
+        lines.append(dlg_block.rstrip())
 
     # Hồ sơ: ưu tiên fact liên quan câu hỏi, thêm vài fact nổi bật
     chosen: list[dict] = []

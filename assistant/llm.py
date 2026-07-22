@@ -246,6 +246,12 @@ def _fast_intent(text: str) -> Intent | None:
             return Intent(action=SET_VOLUME, target="mute", needs_confirmation=False)
         if any(k in t for k in ("bat tieng", "mo tieng", "unmute")):
             return Intent(action=SET_VOLUME, target="unmute", needs_confirmation=False)
+        # Có số cụ thể -> đặt đúng mức đó (vd "tăng âm lượng lên 80")
+        mnum = re.search(r"\b(\d{1,3})\b", t)
+        if mnum:
+            level = min(100, int(mnum.group(1)))
+            return Intent(action=SET_VOLUME, target=str(level),
+                          needs_confirmation=False)
         if any(k in t for k in ("tang", "to hon", "to len", "len", "cao hon", "lon hon")):
             return Intent(action=SET_VOLUME, target="up", needs_confirmation=False)
         if any(k in t for k in ("giam", "nho hon", "nho lai", "xuong", "thap hon")):

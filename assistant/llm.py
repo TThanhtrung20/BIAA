@@ -154,16 +154,31 @@ _MUSIC_STOP = {"cho", "tôi", "mình", "giúp", "đi", "nhé", "với", "nào", 
                "nhạc", "của", "bản", "mở", "bật", "phát", "nghe"}
 
 
+# Ưu tiên: tên bài thường đứng SAU "bài"/"bài hát"; nếu không có thì sau "nhạc"...
+_MUSIC_KEYS = ("bài hát", "bài", "bản nhạc", "nhạc", "bật", "phát", "nghe", "mở")
+
+
 def _music_target(low: str) -> str:
-    """Lấy phần tên bài/ca sĩ sau từ khoá nhạc (lọc theo TỪ, giữ nguyên dấu)."""
-    m = re.search(r"(?:nhạc|bài hát|bài|bật|phát|nghe|mở)\s+(.+)$", low)
-    if not m:
+    """Lấy tên bài/ca sĩ từ câu (giữ nguyên dấu, làm sạch dấu câu).
+
+    Ưu tiên phần sau 'bài'/'bài hát' vì tên bài hát thường theo sau đó.
+    VD: 'nghe nhạc, mở bài em của ngày hôm qua cho tôi' -> 'em của ngày hôm qua'
+    """
+    low = low.strip()
+    seg = None
+    for key in _MUSIC_KEYS:
+        idx = low.rfind(key)          # vị trí xuất hiện cuối cùng
+        if idx >= 0:
+            seg = low[idx + len(key):]
+            break
+    if seg is None:
         return ""
-    words = m.group(1).strip(" ,.!?").split()
-    # bỏ các từ khoá/đệm ở ĐẦU cho tới khi gặp từ có nghĩa
+    # tách từ, bỏ dấu câu bám quanh mỗi từ
+    words = [w.strip(" ,.!?;:\"'()[]") for w in seg.split()]
+    words = [w for w in words if w]
+    # bỏ từ khoá/đệm ở đầu và cuối
     while words and words[0] in _MUSIC_STOP:
         words = words[1:]
-    # bỏ từ đệm ở CUỐI
     while words and words[-1] in _MUSIC_STOP:
         words = words[:-1]
     return " ".join(words)

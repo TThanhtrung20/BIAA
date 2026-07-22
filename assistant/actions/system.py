@@ -62,20 +62,47 @@ def show_location(place: str) -> str:
     return f"Đã mở vị trí '{place}' trên Google Maps."
 
 
+_YT_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/120 Safari/537.36")
+
+
+def _first_youtube_video(query: str) -> str | None:
+    """Tìm videoId của kết quả đầu tiên trên YouTube cho `query`."""
+    import re
+    import urllib.request
+    url = "https://www.youtube.com/results?search_query=" + quote_plus(query)
+    req = urllib.request.Request(
+        url, headers={"User-Agent": _YT_UA, "Accept-Language": "vi,en;q=0.9"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        html = resp.read().decode("utf-8", "ignore")
+    m = re.search(r'"videoId":"([0-9A-Za-z_-]{11})"', html)
+    return m.group(1) if m else None
+
+
 def play_music(query: str) -> str:
     """Phát nhạc/video trên YouTube.
 
-    Mở kết quả tìm kiếm YouTube cho `query`; YouTube thường tự phát video đầu.
-    Nếu để trống -> mở trang chủ YouTube Music.
+    Tự tìm bài đầu tiên khớp `query` rồi mở TRANG XEM (tự phát ngay).
+    Nếu không tra được (mất mạng...) -> mở trang kết quả tìm kiếm.
+    Nếu `query` trống -> mở YouTube Music.
     """
     query = (query or "").strip()
     if not query:
         open_url("https://music.youtube.com")
         return "Đã mở YouTube Music cho bạn."
-    # Trang kết quả tìm kiếm YouTube (video đầu tiên thường phát khi bấm vào)
-    url = "https://www.youtube.com/results?search_query=" + quote_plus(query)
-    open_url(url)
-    return f"Đã tìm '{query}' trên YouTube để bạn nghe nhạc."
+
+    try:
+        vid = _first_youtube_video(query)
+    except Exception:   # noqa: BLE001 - mất mạng/parse lỗi -> fallback
+        vid = None
+
+    if vid:
+        open_url("https://www.youtube.com/watch?v=" + vid)
+        return f"Đang phát '{query}' trên YouTube 🎵"
+
+    # Fallback: mở trang tìm kiếm để người dùng tự chọn
+    open_url("https://www.youtube.com/results?search_query=" + quote_plus(query))
+    return f"Đã tìm '{query}' trên YouTube để bạn chọn nghe."
 
 
 def scroll(direction: str = "down", amount: int = 8) -> str:

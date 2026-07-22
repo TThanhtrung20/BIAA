@@ -11,9 +11,9 @@ import urllib.error
 import urllib.request
 
 from .config import Config
-from .intents import (CHAT, GET_DATETIME, NO_CONFIRM_ACTIONS, OPEN_ARTICLE,
-                      PLAY_MUSIC, SCROLL, SET_VOLUME, UNKNOWN, VALID_ACTIONS,
-                      Intent)
+from .intents import (CHAT, DIRECTIONS, GET_DATETIME, NO_CONFIRM_ACTIONS,
+                      OPEN_ARTICLE, PLAY_MUSIC, SCROLL, SET_VOLUME, UNKNOWN,
+                      VALID_ACTIONS, Intent)
 from .voice.wake import normalize as _norm
 
 SYSTEM_PROMPT = """Bạn là Bia, một trợ lý ảo thân thiện chạy trên máy tính Linux.
@@ -23,7 +23,7 @@ dưới dạng JSON. CHỈ trả về JSON hợp lệ, không thêm bất kỳ c
 
 Schema bắt buộc:
 {
-  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | set_volume | open_article | chat",
+  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | set_volume | open_article | directions | chat",
   "target": "đích của hành động",
   "reply": "một câu ngắn bằng tiếng Việt để xác nhận lại với người dùng",
   "needs_confirmation": true hoặc false
@@ -35,7 +35,8 @@ Quy tắc:
 - "search_web": MỞ trình duyệt để người dùng TỰ xem kết quả tìm kiếm. target là từ khoá. Chỉ dùng khi người dùng nói rõ "mở/tìm trên web/google".
 - "get_datetime": trả lời NGÀY/GIỜ/THỨ hiện tại. Dùng khi hỏi mấy giờ, hôm nay ngày mấy, thứ mấy. target để trống. needs_confirmation=false.
 - "web_answer": Bia TỰ tra thông tin MỚI trên internet rồi trả lời (bản tin/tin tức mới nhất, luật mới, thời tiết, giá vàng/xăng, tỉ số, sự kiện đang diễn ra...). target là chủ đề cần tra (vd "luật giao thông mới", "thời tiết Hà Nội", để trống nếu hỏi bản tin chung). needs_confirmation=false.
-- "show_location": mở VỊ TRÍ/ĐỊA ĐIỂM trên bản đồ (Google Maps). Dùng khi người dùng muốn XEM vị trí, đường đi, chỉ đường, tìm địa điểm cụ thể trên bản đồ. target là tên địa điểm/địa chỉ (vd "Hồ Gươm Hà Nội", "sân bay Tân Sơn Nhất"), hoặc để trống nếu muốn xem vị trí hiện tại. needs_confirmation=false.
+- "show_location": mở MỘT VỊ TRÍ/ĐỊA ĐIỂM trên bản đồ (Google Maps). Dùng khi người dùng muốn XEM một địa điểm cụ thể. target là tên địa điểm/địa chỉ (vd "Hồ Gươm Hà Nội"), hoặc để trống nếu muốn xem vị trí hiện tại. needs_confirmation=false.
+- "directions": CHỈ ĐƯỜNG từ điểm A đến điểm B (đường ngắn nhất, quãng đường, thời gian). Dùng khi người dùng hỏi đường đi, khoảng cách, quãng đường, cách đi từ đâu đến đâu, đi thế nào. target GIỮ NGUYÊN dạng "từ A đến B" (vd "từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3"); nếu chỉ có điểm đến thì target là "đến B" (điểm đi = vị trí hiện tại). needs_confirmation=false.
 - "play_music": PHÁT NHẠC hoặc video trên YouTube. Dùng khi người dùng muốn nghe nhạc, mở bài hát, phát video. target là tên bài hát/ca sĩ/từ khoá nhạc (vd "nhạc lofi", "Sơn Tùng MTP", "nhạc không lời thư giãn"), để trống nếu chỉ nói "mở nhạc" chung chung. needs_confirmation=false.
 - "scroll": CUỘN màn hình lên hoặc xuống ở cửa sổ đang mở. Dùng khi người dùng nói lướt lên/xuống, cuộn lên/xuống, kéo lên/xuống. target là "up" (lên) hoặc "down" (xuống). needs_confirmation=false.
 - "set_volume": CHỈNH ÂM LƯỢNG loa. Dùng khi người dùng nói tăng/giảm/to/nhỏ âm lượng, tắt/bật tiếng. target là "up" (tăng), "down" (giảm), "mute" (tắt tiếng), "unmute" (bật lại), hoặc số 0-100 để đặt mức cụ thể (vd "50"). needs_confirmation=false.
@@ -85,8 +86,14 @@ Người dùng: "thời tiết Hà Nội hôm nay thế nào"
 Người dùng: "cho tôi xem vị trí Hồ Gươm trên bản đồ"
 {"action":"show_location","target":"Hồ Gươm Hà Nội","reply":"","needs_confirmation":false}
 
+Người dùng: "cho tôi xem khoảng cách từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3"
+{"action":"directions","target":"từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3","reply":"","needs_confirmation":false}
+
 Người dùng: "chỉ đường tới sân bay Tân Sơn Nhất"
-{"action":"show_location","target":"sân bay Tân Sơn Nhất","reply":"","needs_confirmation":false}
+{"action":"directions","target":"đến sân bay Tân Sơn Nhất","reply":"","needs_confirmation":false}
+
+Người dùng: "đi từ Hà Nội đến Hải Phòng bao xa"
+{"action":"directions","target":"từ Hà Nội đến Hải Phòng","reply":"","needs_confirmation":false}
 
 Người dùng: "quán cà phê gần đây ở đâu"
 {"action":"show_location","target":"quán cà phê gần đây","reply":"","needs_confirmation":false}
@@ -283,6 +290,12 @@ def _fast_intent(text: str) -> Intent | None:
             action=CHAT, target=name,
             reply=f"Rõ rồi, từ giờ mình sẽ gọi bạn là {name} nhé!",
             needs_confirmation=False)
+
+    # 3a) Chỉ đường / khoảng cách A->B
+    if any(k in t for k in ("chi duong", "duong di", "khoang cach", "quang duong",
+                            "bao xa", "duong nao ngan", "dan duong", "duong tu",
+                            "di tu", "lam sao de di", "cach di")):
+        return Intent(action=DIRECTIONS, target=raw, needs_confirmation=False)
 
     # 3b) Mở/đọc BÀI BÁO trong tin vừa tra (đặt TRƯỚC nhạc vì "mở bài viết"
     #     chứa "mở bài"). "bài viết/bài báo/tin đó/bài số N" -> open_article.

@@ -39,6 +39,7 @@ _ACTION_ANIM = {
     "open_app":         "ThumbsUp",  # mở app -> giơ ngón cái
     "search_web":       "ThumbsUp",  # tìm kiếm -> giơ ngón cái
     "show_location":    "Running",   # dẫn đường -> chạy
+    "directions":       "Running",   # chỉ đường -> chạy
     "get_datetime":     "Yes",       # xem giờ -> gật đầu
     "web_answer":       "Yes",       # tra tin -> gật đầu
     "create_word":      "ThumbsUp",

@@ -8,6 +8,7 @@ from .intents import (
     CREATE_EXCEL,
     CREATE_PPTX,
     CREATE_WORD,
+    DIRECTIONS,
     GET_DATETIME,
     OPEN_APP,
     OPEN_ARTICLE,
@@ -32,6 +33,8 @@ def execute(intent: Intent, cfg=None) -> str:
             return system.search_web(intent.target)
         if intent.action == SHOW_LOCATION:
             return system.show_location(intent.target)
+        if intent.action == DIRECTIONS:
+            return system.directions(intent.target)
         if intent.action == PLAY_MUSIC:
             return system.play_music(intent.target)
         if intent.action == SCROLL:

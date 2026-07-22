@@ -62,6 +62,106 @@ def show_location(place: str) -> str:
     return f"Đã mở vị trí '{place}' trên Google Maps."
 
 
+# Cụm chỉ "vị trí hiện tại" -> để trống origin cho Maps tự định vị
+_HERE_WORDS = ("vị trí hiện tại", "vi tri hien tai", "chỗ tôi", "cho toi",
+               "chỗ mình", "cho minh", "đây", "day", "hiện tại", "hien tai",
+               "vị trí của tôi", "nơi tôi đang đứng")
+
+
+_ROUTE_PREFIX = (
+    r"(cho\s+tôi\s+xem|cho\s+tôi|giúp\s+tôi|giup\s+toi|xem|tính|tinh|"
+    r"chỉ\s+đường|chi\s+duong|chỉ|đường\s+đi|duong\s+di|khoảng\s+cách|"
+    r"khoang\s+cach|quãng\s+đường|quang\s+duong|dẫn\s+đường|dan\s+duong|"
+    r"làm\s+sao\s+để|lam\s+sao\s+de|cách\s+đi|cach\s+di|đường|duong|đi)"
+)
+_ROUTE_MODE_WORDS = ("đi bộ", "di bo", "cuốc bộ", "xe máy", "xe may", "ô tô",
+                     "o to", "xe hơi", "xe hoi", "xe đạp", "xe dap", "đạp xe",
+                     "xe buýt", "xe buyt", "xe bus", "bằng xe", "bang xe")
+
+
+def _parse_route(spec: str) -> tuple[str, str]:
+    """Tách 'từ A đến B' thành (điểm đi, điểm đến).
+
+    Hỗ trợ 'từ A đến B', 'A đến B', 'A tới B', 'A -> B'. Không có dấu tách thì
+    coi cả câu là điểm đến (điểm đi = vị trí hiện tại). Tự bỏ các cụm dẫn
+    ('cho tôi xem', 'khoảng cách', 'chỉ đường'...) và từ chỉ phương tiện.
+    """
+    import re
+    s = (spec or "").strip()
+
+    # Bỏ từ chỉ phương tiện (đã xử lý riêng ở _travel_mode)
+    for mw in _ROUTE_MODE_WORDS:
+        s = re.sub(re.escape(mw), " ", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+", " ", s).strip()
+
+    # Bỏ LẶP các cụm dẫn ở đầu cho tới khi hết
+    prev = None
+    while prev != s:
+        prev = s
+        s = re.sub(r"^\s*" + _ROUTE_PREFIX + r"\s+", "", s,
+                   flags=re.IGNORECASE).strip()
+
+    # Bỏ đuôi hỏi ('bao xa', 'bao nhiêu km', 'mất bao lâu'...)
+    s = re.sub(r"\s+(bao\s+xa|bao\s+nhiêu.*|bao\s+lâu.*|mất\s+bao.*|"
+               r"hết\s+bao.*|nhé|nha|ạ|đi|với)$", "", s,
+               flags=re.IGNORECASE).strip(" ,.!?")
+
+    low = s.lower()
+    for sep in (" đến ", " tới ", " den ", " toi ", " -> ", "->", " → ", "→", " ra "):
+        idx = low.find(sep)
+        if idx >= 0:
+            origin = s[:idx].strip()
+            dest = s[idx + len(sep):].strip()
+            origin = re.sub(r"^(từ|tu)\s+", "", origin, flags=re.IGNORECASE).strip()
+            return origin, dest.strip(" ,.!?")
+
+    # Không có dấu tách -> chỉ có điểm đến
+    dest = re.sub(r"^(từ|tu|đến|den|tới|toi)\s+", "", s, flags=re.IGNORECASE).strip()
+    return "", dest
+
+
+def _travel_mode(text: str) -> str:
+    t = text.lower()
+    if any(k in t for k in ("đi bộ", "di bo", "cuốc bộ", "walk")):
+        return "walking"
+    if any(k in t for k in ("xe buýt", "xe buyt", "xe bus", "bus", "phương tiện công cộng")):
+        return "transit"
+    if any(k in t for k in ("xe đạp", "xe dap", "đạp xe", "bike", "bicycle")):
+        return "bicycling"
+    return "driving"
+
+
+def directions(spec: str, mode: str = "") -> str:
+    """Chỉ đường A->B trên Google Maps (đường ngắn nhất, kèm quãng đường & thời gian).
+
+    `spec`: mô tả tuyến, vd 'từ chợ Bến Đồn đến vòng xoay Hiệp Thành 3'.
+    Google Maps sẽ tự vẽ đường đi tối ưu, hiện khoảng cách, thời gian, dẫn đường.
+    """
+    spec = (spec or "").strip()
+    if not spec:
+        return "Bạn cho mình biết đi từ đâu đến đâu nhé."
+
+    origin, dest = _parse_route(spec)
+    if not dest:
+        return "Mình chưa rõ điểm đến. Bạn nói lại kiểu 'từ A đến B' giúp mình nhé."
+
+    travel = mode or _travel_mode(spec)
+
+    url = "https://www.google.com/maps/dir/?api=1"
+    use_origin = origin and origin.lower() not in _HERE_WORDS
+    if use_origin:
+        url += "&origin=" + quote_plus(origin)
+    url += "&destination=" + quote_plus(dest)
+    url += "&travelmode=" + travel
+    open_url(url)
+
+    if use_origin:
+        return (f"Đang chỉ đường từ '{origin}' đến '{dest}' — Google Maps sẽ hiện "
+                "đường ngắn nhất, quãng đường và thời gian đi.")
+    return (f"Đang chỉ đường tới '{dest}' từ vị trí hiện tại của bạn — kèm quãng "
+            "đường, thời gian và hướng dẫn đi.")
+
+
 _YT_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
           "(KHTML, like Gecko) Chrome/120 Safari/537.36")
 

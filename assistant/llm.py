@@ -11,8 +11,9 @@ import urllib.error
 import urllib.request
 
 from .config import Config
-from .intents import (CHAT, GET_DATETIME, NO_CONFIRM_ACTIONS, PLAY_MUSIC,
-                      SCROLL, SET_VOLUME, UNKNOWN, VALID_ACTIONS, Intent)
+from .intents import (CHAT, GET_DATETIME, NO_CONFIRM_ACTIONS, OPEN_ARTICLE,
+                      PLAY_MUSIC, SCROLL, SET_VOLUME, UNKNOWN, VALID_ACTIONS,
+                      Intent)
 from .voice.wake import normalize as _norm
 
 SYSTEM_PROMPT = """Bạn là Bia, một trợ lý ảo thân thiện chạy trên máy tính Linux.
@@ -22,7 +23,7 @@ dưới dạng JSON. CHỈ trả về JSON hợp lệ, không thêm bất kỳ c
 
 Schema bắt buộc:
 {
-  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | set_volume | chat",
+  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | set_volume | open_article | chat",
   "target": "đích của hành động",
   "reply": "một câu ngắn bằng tiếng Việt để xác nhận lại với người dùng",
   "needs_confirmation": true hoặc false
@@ -38,6 +39,7 @@ Quy tắc:
 - "play_music": PHÁT NHẠC hoặc video trên YouTube. Dùng khi người dùng muốn nghe nhạc, mở bài hát, phát video. target là tên bài hát/ca sĩ/từ khoá nhạc (vd "nhạc lofi", "Sơn Tùng MTP", "nhạc không lời thư giãn"), để trống nếu chỉ nói "mở nhạc" chung chung. needs_confirmation=false.
 - "scroll": CUỘN màn hình lên hoặc xuống ở cửa sổ đang mở. Dùng khi người dùng nói lướt lên/xuống, cuộn lên/xuống, kéo lên/xuống. target là "up" (lên) hoặc "down" (xuống). needs_confirmation=false.
 - "set_volume": CHỈNH ÂM LƯỢNG loa. Dùng khi người dùng nói tăng/giảm/to/nhỏ âm lượng, tắt/bật tiếng. target là "up" (tăng), "down" (giảm), "mute" (tắt tiếng), "unmute" (bật lại), hoặc số 0-100 để đặt mức cụ thể (vd "50"). needs_confirmation=false.
+- "open_article": MỞ BÀI BÁO để đọc chi tiết, SAU KHI đã tra tin bằng web_answer. Dùng khi người dùng nói "mở/xem/đọc bài viết đó", "bài báo đó", "mở bài số 2", "cho tôi đọc tin đó". target là số thứ tự nếu có (vd "2"), để trống nếu là bài đầu/không rõ. needs_confirmation=false. LƯU Ý: "bài viết/bài báo/tin" là BÀI BÁO (open_article), KHÁC với "bài hát/nhạc" là NHẠC (play_music).
 - "create_word": soạn file Word. target là chủ đề/mô tả nội dung tài liệu.
 - "create_excel": tạo file Excel. target là mô tả bảng dữ liệu cần tạo.
 - "create_powerpoint": làm bài thuyết trình. target là chủ đề bài trình chiếu.
@@ -67,6 +69,15 @@ Người dùng: "cho mình bản tin mới nhất hôm nay"
 
 Người dùng: "có luật giao thông gì mới không"
 {"action":"web_answer","target":"luật giao thông mới","reply":"","needs_confirmation":false}
+
+Người dùng: "cho tôi xem bài viết đó đi"
+{"action":"open_article","target":"","reply":"","needs_confirmation":false}
+
+Người dùng: "mở bài báo số 2"
+{"action":"open_article","target":"2","reply":"","needs_confirmation":false}
+
+Người dùng: "đọc tin đó cho tôi"
+{"action":"open_article","target":"","reply":"","needs_confirmation":false}
 
 Người dùng: "thời tiết Hà Nội hôm nay thế nào"
 {"action":"web_answer","target":"thời tiết Hà Nội hôm nay","reply":"","needs_confirmation":false}
@@ -272,6 +283,14 @@ def _fast_intent(text: str) -> Intent | None:
             action=CHAT, target=name,
             reply=f"Rõ rồi, từ giờ mình sẽ gọi bạn là {name} nhé!",
             needs_confirmation=False)
+
+    # 3b) Mở/đọc BÀI BÁO trong tin vừa tra (đặt TRƯỚC nhạc vì "mở bài viết"
+    #     chứa "mở bài"). "bài viết/bài báo/tin đó/bài số N" -> open_article.
+    if any(k in t for k in ("bai viet", "bai bao", "doc bai", "doc tin",
+                            "bai so", "tin so")) or \
+       (("tin do" in t or "bai do" in t) and
+            any(v in t for v in ("mo", "xem", "doc", "coi"))):
+        return Intent(action=OPEN_ARTICLE, target=raw, needs_confirmation=False)
 
     # 4) Phát nhạc
     if any(k in t for k in _MUSIC_KW):

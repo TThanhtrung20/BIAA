@@ -10,6 +10,7 @@ from .intents import (
     CREATE_WORD,
     GET_DATETIME,
     OPEN_APP,
+    OPEN_ARTICLE,
     OPEN_URL,
     PLAY_MUSIC,
     SCROLL,
@@ -43,6 +44,8 @@ def execute(intent: Intent, cfg=None) -> str:
             return web.get_datetime(intent.target)
         if intent.action == WEB_ANSWER:
             return web.web_answer(intent.target, cfg)
+        if intent.action == OPEN_ARTICLE:
+            return web.open_article(intent.target)
         if intent.action in (CREATE_WORD, CREATE_EXCEL, CREATE_PPTX):
             return _create_office(intent, cfg)
         if intent.action in (CHAT, UNKNOWN):

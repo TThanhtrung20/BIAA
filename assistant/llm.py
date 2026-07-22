@@ -181,7 +181,76 @@ def _strip_wake(raw: str) -> str:
     return " ".join(words).strip(" ,.!?")
 
 
+# Bộ từ khoá (đã bỏ dấu) cho từng nhóm lệnh fast-path
+_SCROLL_KW = ("cuon", "luot", "keo", "scroll")
+_SCROLL_DOWN = ("xuong", "duoi", "down")
+_SCROLL_UP = ("len", "tren", "up")
+_DATETIME_KW = ("may gio", "gio roi", "ngay may", "ngay bao nhieu", "thu may",
+                "hom nay ngay", "hom nay la thu")
+_VOL_CTX = ("am luong", "volume", "am thanh", "tieng")
+_VOL_MUTE = ("tat tieng", "cam tieng", "im lang", "mute")
+_VOL_UNMUTE = ("bat tieng", "mo tieng", "unmute")
+_VOL_UP = ("tang", "to hon", "to len", "len", "cao hon", "lon hon")
+_VOL_DOWN = ("giam", "nho hon", "nho lai", "xuong", "thap hon")
+_VOL_UP_SOLO = ("to len", "to hon", "van to")       # câu ngắn, không kèm "âm lượng"
+_VOL_DOWN_SOLO = ("nho lai", "nho hon", "van nho")
+_DIRECTIONS_KW = ("chi duong", "duong di", "khoang cach", "quang duong", "bao xa",
+                  "duong nao ngan", "dan duong", "duong tu", "di tu",
+                  "lam sao de di", "cach di", "bat dau di", "di thoi",
+                  "khoi hanh", "len duong", "bat dau chi duong", "bat dau dan duong")
+_ARTICLE_KW = ("bai viet", "bai bao", "doc bai", "doc tin", "bai so", "tin so")
+
+
+def _intent(action, target="", reply="", confirm=False):
+    return Intent(action=action, target=target, reply=reply,
+                  needs_confirmation=confirm)
+
+
+def _fi_scroll(t: str) -> Intent | None:
+    if any(k in t for k in _SCROLL_KW) or "scroll" in t:
+        if any(k in t for k in _SCROLL_DOWN):
+            return _intent(SCROLL, "down")
+        if any(k in t for k in _SCROLL_UP):
+            return _intent(SCROLL, "up")
+    return None
+
+
+def _fi_volume(t: str) -> Intent | None:
+    if any(k in t for k in _VOL_CTX):
+        if any(k in t for k in _VOL_MUTE):
+            return _intent(SET_VOLUME, "mute")
+        if any(k in t for k in _VOL_UNMUTE):
+            return _intent(SET_VOLUME, "unmute")
+        m = re.search(r"\b(\d{1,3})\b", t)          # số cụ thể -> đặt đúng mức
+        if m:
+            return _intent(SET_VOLUME, str(min(100, int(m.group(1)))))
+        if any(k in t for k in _VOL_UP):
+            return _intent(SET_VOLUME, "up")
+        if any(k in t for k in _VOL_DOWN):
+            return _intent(SET_VOLUME, "down")
+    # câu ngắn không kèm "âm lượng": "to lên" / "nhỏ lại" / "tắt tiếng"
+    if any(k in t for k in _VOL_MUTE[:2]):
+        return _intent(SET_VOLUME, "mute")
+    if t in _VOL_UP_SOLO:
+        return _intent(SET_VOLUME, "up")
+    if t in _VOL_DOWN_SOLO:
+        return _intent(SET_VOLUME, "down")
+    return None
+
+
+def _fi_article(t: str, raw: str) -> Intent | None:
+    if any(k in t for k in _ARTICLE_KW) or (
+            ("tin do" in t or "bai do" in t)
+            and any(v in t for v in ("mo", "xem", "doc", "coi"))):
+        return _intent(OPEN_ARTICLE, raw)
+    return None
+
+
 def _fast_intent(text: str) -> Intent | None:
+    """Nhận diện lệnh phổ biến bằng luật (không gọi LLM). None nếu không chắc.
+
+    Thứ tự quan trọng: bài báo phải xét TRƯỚC nhạc (vì 'mở bài viết' chứa 'mở bài').
+    """
     raw = (text or "").strip()
     if not raw:
         return None
@@ -189,85 +258,29 @@ def _fast_intent(text: str) -> Intent | None:
     # Bỏ tiền tố gọi tên: "bia mở nhạc" -> "mở nhạc"; "bia ơi" -> "" (chào)
     stripped = _strip_wake(raw)
     if not stripped:
-        return Intent(action=CHAT, target="",
-                      reply="Bia đây! Bạn cần mình giúp gì nào?",
-                      needs_confirmation=False)
+        return _intent(CHAT, reply="Bia đây! Bạn cần mình giúp gì nào?")
     raw = stripped
     low = raw.lower()
-    t = _norm(raw)   # bỏ dấu, lowercase
+    t = _norm(raw)                                  # bỏ dấu, lowercase
 
-    # 1) Cuộn màn hình
-    if any(k in t for k in ("cuon", "luot", "keo")) or "scroll" in t:
-        if any(k in t for k in ("xuong", "duoi", "down")):
-            return Intent(action=SCROLL, target="down", needs_confirmation=False)
-        if any(k in t for k in ("len", "tren", "up")):
-            return Intent(action=SCROLL, target="up", needs_confirmation=False)
-
-    # 2) Ngày/giờ
-    if any(k in t for k in ("may gio", "gio roi", "ngay may", "ngay bao nhieu",
-                            "thu may", "hom nay ngay", "hom nay la thu")):
-        return Intent(action=GET_DATETIME, target="", needs_confirmation=False)
-
-    # 2b) Âm lượng
-    if any(k in t for k in ("am luong", "volume", "am thanh", "tieng")):
-        if any(k in t for k in ("tat tieng", "cam tieng", "im lang", "mute")):
-            return Intent(action=SET_VOLUME, target="mute", needs_confirmation=False)
-        if any(k in t for k in ("bat tieng", "mo tieng", "unmute")):
-            return Intent(action=SET_VOLUME, target="unmute", needs_confirmation=False)
-        # Có số cụ thể -> đặt đúng mức đó (vd "tăng âm lượng lên 80")
-        mnum = re.search(r"\b(\d{1,3})\b", t)
-        if mnum:
-            level = min(100, int(mnum.group(1)))
-            return Intent(action=SET_VOLUME, target=str(level),
-                          needs_confirmation=False)
-        if any(k in t for k in ("tang", "to hon", "to len", "len", "cao hon", "lon hon")):
-            return Intent(action=SET_VOLUME, target="up", needs_confirmation=False)
-        if any(k in t for k in ("giam", "nho hon", "nho lai", "xuong", "thap hon")):
-            return Intent(action=SET_VOLUME, target="down", needs_confirmation=False)
-    # cách nói ngắn không kèm "âm lượng": "to lên"/"nhỏ lại"/"tắt tiếng"
-    if "tat tieng" in t or "cam tieng" in t:
-        return Intent(action=SET_VOLUME, target="mute", needs_confirmation=False)
-    if any(p == t for p in ("to len", "to hon", "vặn to", "van to")):
-        return Intent(action=SET_VOLUME, target="up", needs_confirmation=False)
-    if any(p == t for p in ("nho lai", "nho hon", "van nho", "vặn nhỏ")):
-        return Intent(action=SET_VOLUME, target="down", needs_confirmation=False)
-
-    # 3) Xưng tên / muốn được gọi là gì -> xác nhận + ghi nhớ ngay
-    name = _name_from(low)
-    if name:
-        return Intent(
-            action=CHAT, target=name,
-            reply=f"Rõ rồi, từ giờ mình sẽ gọi bạn là {name} nhé!",
-            needs_confirmation=False)
-
-    # 3a) Chỉ đường / khoảng cách A->B, và "bắt đầu đi" (dẫn đường tuyến vừa xem)
-    if any(k in t for k in ("chi duong", "duong di", "khoang cach", "quang duong",
-                            "bao xa", "duong nao ngan", "dan duong", "duong tu",
-                            "di tu", "lam sao de di", "cach di",
-                            "bat dau di", "di thoi", "khoi hanh", "len duong",
-                            "bat dau chi duong", "bat dau dan duong")):
-        return Intent(action=DIRECTIONS, target=raw, needs_confirmation=False)
-
-    # 3b) Mở/đọc BÀI BÁO trong tin vừa tra (đặt TRƯỚC nhạc vì "mở bài viết"
-    #     chứa "mở bài"). "bài viết/bài báo/tin đó/bài số N" -> open_article.
-    if any(k in t for k in ("bai viet", "bai bao", "doc bai", "doc tin",
-                            "bai so", "tin so")) or \
-       (("tin do" in t or "bai do" in t) and
-            any(v in t for v in ("mo", "xem", "doc", "coi"))):
-        return Intent(action=OPEN_ARTICLE, target=raw, needs_confirmation=False)
-
-    # 4) Phát nhạc
+    if (it := _fi_scroll(t)):
+        return it
+    if any(k in t for k in _DATETIME_KW):
+        return _intent(GET_DATETIME)
+    if (it := _fi_volume(t)):
+        return it
+    if (name := _name_from(low)):
+        return _intent(CHAT, name, f"Rõ rồi, từ giờ mình sẽ gọi bạn là {name} nhé!")
+    if any(k in t for k in _DIRECTIONS_KW):
+        return _intent(DIRECTIONS, raw)
+    if (it := _fi_article(t, raw)):
+        return it
     if any(k in t for k in _MUSIC_KW):
-        return Intent(action=PLAY_MUSIC, target=_music_target(low),
-                      needs_confirmation=False)
+        return _intent(PLAY_MUSIC, _music_target(low))
 
-    # 5) Chào hỏi -> trả lời cố định (không cần LLM)
     words = t.split()
     if words and words[0] in _GREETINGS and len(words) <= 4:
-        return Intent(
-            action=CHAT, target="",
-            reply="Chào bạn! Mình là Bia đây, mình giúp được gì cho bạn?",
-            needs_confirmation=False)
+        return _intent(CHAT, reply="Chào bạn! Mình là Bia đây, mình giúp được gì cho bạn?")
 
     return None
 

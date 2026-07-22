@@ -140,6 +140,73 @@ def scroll(direction: str = "down", amount: int = 8) -> str:
         return "Mình chỉ cuộn lên hoặc xuống thôi nhé."
 
 
+def _current_volume() -> int | None:
+    """Đọc âm lượng hiện tại (%) qua pactl. None nếu không đọc được."""
+    try:
+        out = subprocess.check_output(
+            ["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
+            stderr=subprocess.DEVNULL, text=True)
+        import re
+        m = re.search(r"(\d+)%", out)
+        return int(m.group(1)) if m else None
+    except Exception:   # noqa: BLE001
+        return None
+
+
+def set_volume(target: str = "up", step: int = 10) -> str:
+    """Chỉnh âm lượng loa qua pactl (PulseAudio/PipeWire).
+
+    target: 'up' | 'down' | 'mute' | 'unmute' | số 0-100 (đặt mức cụ thể).
+    """
+    if not shutil.which("pactl"):
+        return "Máy chưa có pactl nên mình không chỉnh âm lượng được."
+
+    target = (target or "up").strip().lower()
+    # Chuẩn hoá vài cách nói tiếng Việt
+    if target in ("lên", "len", "to", "to hơn", "tăng", "tang", "up", "cao"):
+        target = "up"
+    elif target in ("xuống", "xuong", "nhỏ", "nho", "giảm", "giam", "down", "thấp"):
+        target = "down"
+    elif target in ("tắt tiếng", "tat tieng", "im", "câm", "cam", "mute"):
+        target = "mute"
+    elif target in ("bật tiếng", "bat tieng", "unmute", "mở tiếng"):
+        target = "unmute"
+
+    sink = "@DEFAULT_SINK@"
+    try:
+        if target == "up":
+            subprocess.run(["pactl", "set-sink-mute", sink, "0"],
+                           stderr=subprocess.DEVNULL)
+            subprocess.run(["pactl", "set-sink-volume", sink, f"+{step}%"],
+                           stderr=subprocess.DEVNULL)
+            vol = _current_volume()
+            return f"Đã tăng âm lượng{f' lên {vol}%' if vol is not None else ''}."
+        if target == "down":
+            subprocess.run(["pactl", "set-sink-volume", sink, f"-{step}%"],
+                           stderr=subprocess.DEVNULL)
+            vol = _current_volume()
+            return f"Đã giảm âm lượng{f' còn {vol}%' if vol is not None else ''}."
+        if target == "mute":
+            subprocess.run(["pactl", "set-sink-mute", sink, "1"],
+                           stderr=subprocess.DEVNULL)
+            return "Đã tắt tiếng."
+        if target == "unmute":
+            subprocess.run(["pactl", "set-sink-mute", sink, "0"],
+                           stderr=subprocess.DEVNULL)
+            return "Đã bật tiếng lại."
+        # Đặt mức cụ thể nếu target là số
+        if target.isdigit():
+            level = max(0, min(100, int(target)))
+            subprocess.run(["pactl", "set-sink-mute", sink, "0"],
+                           stderr=subprocess.DEVNULL)
+            subprocess.run(["pactl", "set-sink-volume", sink, f"{level}%"],
+                           stderr=subprocess.DEVNULL)
+            return f"Đã đặt âm lượng ở mức {level}%."
+    except Exception as exc:   # noqa: BLE001
+        return f"Không chỉnh được âm lượng: {exc}"
+    return "Mình chưa hiểu ý chỉnh âm lượng của bạn."
+
+
 def open_app(name: str) -> str:
     if not name:
         raise ValueError("Tên ứng dụng trống")

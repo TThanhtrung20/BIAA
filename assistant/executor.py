@@ -14,6 +14,7 @@ from .intents import (
     PLAY_MUSIC,
     SCROLL,
     SEARCH_WEB,
+    SET_VOLUME,
     SHOW_LOCATION,
     UNKNOWN,
     WEB_ANSWER,
@@ -34,6 +35,8 @@ def execute(intent: Intent, cfg=None) -> str:
             return system.play_music(intent.target)
         if intent.action == SCROLL:
             return system.scroll(intent.target or "down")
+        if intent.action == SET_VOLUME:
+            return system.set_volume(intent.target or "up")
         if intent.action == OPEN_APP:
             return system.open_app(intent.target)
         if intent.action == GET_DATETIME:

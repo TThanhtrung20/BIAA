@@ -34,6 +34,7 @@ _ANIM_NAMES = {
 _ACTION_ANIM = {
     "play_music":       "Dance",     # phát nhạc -> nhảy múa
     "scroll":           "Jump",      # cuộn màn hình -> nhún nhảy
+    "set_volume":       "ThumbsUp",  # chỉnh âm lượng -> giơ ngón cái
     "open_url":         "ThumbsUp",  # mở web -> giơ ngón cái
     "open_app":         "ThumbsUp",  # mở app -> giơ ngón cái
     "search_web":       "ThumbsUp",  # tìm kiếm -> giơ ngón cái

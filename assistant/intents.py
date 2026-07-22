@@ -15,6 +15,7 @@ WEB_ANSWER = "web_answer"            # tra thông tin mới trên internet rồi
 SHOW_LOCATION = "show_location"      # mở vị trí/địa điểm trên bản đồ (Google Maps)
 PLAY_MUSIC = "play_music"            # phát nhạc/video trên YouTube
 SCROLL = "scroll"                    # cuộn màn hình lên/xuống (target = 'up'|'down')
+SET_VOLUME = "set_volume"            # chỉnh âm lượng (target = 'up'|'down'|'mute'|'0-100')
 CHAT = "chat"                        # chỉ trò chuyện/trả lời
 UNKNOWN = "unknown"                  # không hiểu
 
@@ -22,13 +23,13 @@ VALID_ACTIONS = {
     OPEN_URL, OPEN_APP, SEARCH_WEB,
     CREATE_WORD, CREATE_EXCEL, CREATE_PPTX,
     GET_DATETIME, WEB_ANSWER, SHOW_LOCATION,
-    PLAY_MUSIC, SCROLL,
+    PLAY_MUSIC, SCROLL, SET_VOLUME,
     CHAT, UNKNOWN,
 }
 
 # Hành động chỉ ĐỌC/trả lời thông tin, an toàn -> không cần xác nhận
 NO_CONFIRM_ACTIONS = {GET_DATETIME, WEB_ANSWER, SHOW_LOCATION, PLAY_MUSIC, SCROLL,
-                      CHAT, UNKNOWN}
+                      SET_VOLUME, CHAT, UNKNOWN}
 
 # --- Mức độ rủi ro ---
 SAFE = "safe"            # không thay đổi dữ liệu, dễ đảo ngược
@@ -44,6 +45,7 @@ RISK_LEVEL = {
     SHOW_LOCATION: SAFE,
     PLAY_MUSIC: SAFE,
     SCROLL: SAFE,
+    SET_VOLUME: SAFE,
     CHAT: SAFE,
     UNKNOWN: SAFE,
     # Tạo file -> có thay đổi dữ liệu trên ổ đĩa

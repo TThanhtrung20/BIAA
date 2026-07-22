@@ -12,7 +12,7 @@ import urllib.request
 
 from .config import Config
 from .intents import (CHAT, GET_DATETIME, NO_CONFIRM_ACTIONS, PLAY_MUSIC,
-                      SCROLL, UNKNOWN, VALID_ACTIONS, Intent)
+                      SCROLL, SET_VOLUME, UNKNOWN, VALID_ACTIONS, Intent)
 from .voice.wake import normalize as _norm
 
 SYSTEM_PROMPT = """Bạn là Bia, một trợ lý ảo thân thiện chạy trên máy tính Linux.
@@ -22,7 +22,7 @@ dưới dạng JSON. CHỈ trả về JSON hợp lệ, không thêm bất kỳ c
 
 Schema bắt buộc:
 {
-  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | chat",
+  "action": "open_url | open_app | search_web | create_word | create_excel | create_powerpoint | get_datetime | web_answer | show_location | play_music | scroll | set_volume | chat",
   "target": "đích của hành động",
   "reply": "một câu ngắn bằng tiếng Việt để xác nhận lại với người dùng",
   "needs_confirmation": true hoặc false
@@ -37,6 +37,7 @@ Quy tắc:
 - "show_location": mở VỊ TRÍ/ĐỊA ĐIỂM trên bản đồ (Google Maps). Dùng khi người dùng muốn XEM vị trí, đường đi, chỉ đường, tìm địa điểm cụ thể trên bản đồ. target là tên địa điểm/địa chỉ (vd "Hồ Gươm Hà Nội", "sân bay Tân Sơn Nhất"), hoặc để trống nếu muốn xem vị trí hiện tại. needs_confirmation=false.
 - "play_music": PHÁT NHẠC hoặc video trên YouTube. Dùng khi người dùng muốn nghe nhạc, mở bài hát, phát video. target là tên bài hát/ca sĩ/từ khoá nhạc (vd "nhạc lofi", "Sơn Tùng MTP", "nhạc không lời thư giãn"), để trống nếu chỉ nói "mở nhạc" chung chung. needs_confirmation=false.
 - "scroll": CUỘN màn hình lên hoặc xuống ở cửa sổ đang mở. Dùng khi người dùng nói lướt lên/xuống, cuộn lên/xuống, kéo lên/xuống. target là "up" (lên) hoặc "down" (xuống). needs_confirmation=false.
+- "set_volume": CHỈNH ÂM LƯỢNG loa. Dùng khi người dùng nói tăng/giảm/to/nhỏ âm lượng, tắt/bật tiếng. target là "up" (tăng), "down" (giảm), "mute" (tắt tiếng), "unmute" (bật lại), hoặc số 0-100 để đặt mức cụ thể (vd "50"). needs_confirmation=false.
 - "create_word": soạn file Word. target là chủ đề/mô tả nội dung tài liệu.
 - "create_excel": tạo file Excel. target là mô tả bảng dữ liệu cần tạo.
 - "create_powerpoint": làm bài thuyết trình. target là chủ đề bài trình chiếu.
@@ -98,6 +99,18 @@ Người dùng: "cuộn lên trên giúp mình"
 
 Người dùng: "kéo xuống tí nữa"
 {"action":"scroll","target":"down","reply":"","needs_confirmation":false}
+
+Người dùng: "tăng âm lượng lên"
+{"action":"set_volume","target":"up","reply":"","needs_confirmation":false}
+
+Người dùng: "nhỏ tiếng lại giúp mình"
+{"action":"set_volume","target":"down","reply":"","needs_confirmation":false}
+
+Người dùng: "tắt tiếng đi"
+{"action":"set_volume","target":"mute","reply":"","needs_confirmation":false}
+
+Người dùng: "để âm lượng 50 phần trăm"
+{"action":"set_volume","target":"50","reply":"","needs_confirmation":false}
 
 Người dùng: "soạn giúp tôi file word về lợi ích của việc đọc sách"
 {"action":"create_word","target":"lợi ích của việc đọc sách","reply":"Bạn muốn mình soạn một file Word về 'lợi ích của việc đọc sách' đúng không?","needs_confirmation":true}
@@ -226,6 +239,24 @@ def _fast_intent(text: str) -> Intent | None:
     if any(k in t for k in ("may gio", "gio roi", "ngay may", "ngay bao nhieu",
                             "thu may", "hom nay ngay", "hom nay la thu")):
         return Intent(action=GET_DATETIME, target="", needs_confirmation=False)
+
+    # 2b) Âm lượng
+    if any(k in t for k in ("am luong", "volume", "am thanh", "tieng")):
+        if any(k in t for k in ("tat tieng", "cam tieng", "im lang", "mute")):
+            return Intent(action=SET_VOLUME, target="mute", needs_confirmation=False)
+        if any(k in t for k in ("bat tieng", "mo tieng", "unmute")):
+            return Intent(action=SET_VOLUME, target="unmute", needs_confirmation=False)
+        if any(k in t for k in ("tang", "to hon", "to len", "len", "cao hon", "lon hon")):
+            return Intent(action=SET_VOLUME, target="up", needs_confirmation=False)
+        if any(k in t for k in ("giam", "nho hon", "nho lai", "xuong", "thap hon")):
+            return Intent(action=SET_VOLUME, target="down", needs_confirmation=False)
+    # cách nói ngắn không kèm "âm lượng": "to lên"/"nhỏ lại"/"tắt tiếng"
+    if "tat tieng" in t or "cam tieng" in t:
+        return Intent(action=SET_VOLUME, target="mute", needs_confirmation=False)
+    if any(p == t for p in ("to len", "to hon", "vặn to", "van to")):
+        return Intent(action=SET_VOLUME, target="up", needs_confirmation=False)
+    if any(p == t for p in ("nho lai", "nho hon", "van nho", "vặn nhỏ")):
+        return Intent(action=SET_VOLUME, target="down", needs_confirmation=False)
 
     # 3) Xưng tên / muốn được gọi là gì -> xác nhận + ghi nhớ ngay
     name = _name_from(low)
